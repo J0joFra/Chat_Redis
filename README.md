@@ -1,2 +1,2 @@
 # itsar-bd-23-25
-Esercizi
+Esercizi Big Jo + Hulk Giulio + Pipita Ted 💪🏽
