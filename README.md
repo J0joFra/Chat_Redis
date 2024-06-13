@@ -4,6 +4,6 @@ Esercizi Big Jo + Hulk Giulio + Pipita Ted 💪🏽
 Scrivete qualcosa per esercitarvi
 [Rispondete sotto se riuscite]
 
-Risposta Giulio:
+Risposta Giulio: uellaaa!!!
 
 Risposta Ted:
