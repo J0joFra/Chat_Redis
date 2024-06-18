@@ -1,7 +1,7 @@
 import redis
 
 # Connessione a Redis
-r = redis.Redis(host='localhost', port=6380, db=0, charset="utf-8", decode_responses=True, password="miao")
+r = redis.Redis(host='localhost', port=6380, db=0, charset="utf-8", decode_responses=True, password="miao") #password da hashare
 
 # Funzione per gestire il login
 def login(username):
