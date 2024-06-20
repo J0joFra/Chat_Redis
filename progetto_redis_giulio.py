@@ -1,6 +1,7 @@
 import redis
 import threading
 import time
+import os
 
 # Connessione a Redis
 try:
@@ -11,22 +12,33 @@ try:
 except redis.ConnectionError as e:
     print(f"Errore di connessione a Redis: {e}")
     exit(1)
+# Pulizia schermo
+def clear_screen():
+    if os.name == 'nt':  # Se il sistema operativo è Windows
+        os.system('cls')
+    else:  # Altri sistemi operativi (Unix, Linux, Mac)
+        os.system('clear')
 
 # Funzione per gestire il login
-def login(username, password):
-    if r.exists(username):
-        user_data = r.hgetall(username)
-        if user_data.get("password") == password:
+def login(username):
+    while True:
+        if r.exists(username):  # Username esistente
+            user_data = r.hgetall(username)
+            password = input(f"Username: {username}\nInserisci la password: ")
+            if user_data.get("password") == password:
+                return user_data
+            else:
+                clear_screen()
+                print("Password errata.")
+        else:  # Username non esistente
+            password = input("Crea una nuova password: ")
+            user_data = {"username": username, "password": password, "dnd": "False"}
+            r.hmset(username, user_data)
             return user_data
-        else:
-            return None
-    else:
-        user_data = {"username": username, "password": password}
-        r.hmset(username, user_data)
-        return user_data
 
 # Funzione per gestire la rubrica
 def rubrica(username):
+    clear_screen()
     rubrica_key = f"{username}_rubrica"
     if not r.exists(rubrica_key):
         r.rpush(rubrica_key, username)
@@ -35,16 +47,19 @@ def rubrica(username):
 
 # Funzione per aggiungere un contatto alla rubrica
 def aggiungi_contatto(username, nuovo_contatto):
+    clear_screen()
     rubrica_key = f"{username}_rubrica"
     r.rpush(rubrica_key, nuovo_contatto)
 
 # Funzione per rimuovere un contatto dalla rubrica
 def rimuovi_contatto(username, contatto_da_rimuovere):
+    clear_screen()
     rubrica_key = f"{username}_rubrica"
     r.lrem(rubrica_key, 0, contatto_da_rimuovere)
 
 # Funzione per inviare e leggere messaggi
 def chat_messaggi(mittente, destinatario):
+    clear_screen()
     lista = [mittente, destinatario]
     lista.sort()
     chat_key = f"{lista[0]}_{lista[1]}"
@@ -79,6 +94,7 @@ def chat_messaggi(mittente, destinatario):
 
 # Funzione per avviare la sessione
 def avvia_sessione():
+    clear_screen()
     while True:
         print("\nOpzioni disponibili:")
         print("1. Login")
