@@ -75,29 +75,31 @@ def chat_messaggi(mittente, destinatario):
             if len(messaggi) > ultimo_messaggio:
                 nuovi_messaggi = messaggi[ultimo_messaggio:]
                 for messaggio in nuovi_messaggi:
-                    if messaggio.startswith(">"):
+                    if messaggio.startswith("Me >> "):
                         print(f"{messaggio}")
                     else:
-                        print(f"< {messaggio}")
+                        print(f"{destinatario} << {messaggio}")
                 ultimo_messaggio = len(messaggi)
+                time.sleep(3) #3 sec
 
     threading.Thread(target=aggiorna_chat, daemon=True).start()
 
     while True:
-        messaggio = input(f"Inserisci un messaggio per {destinatario}: ")
+        messaggio = input() # Solo input del messaggio, senza prompt
         if messaggio.strip().lower() == 'exit':
             break
-        messaggio = "> " + messaggio
+        messaggio = "Me >> " + messaggio  # Formatta il messaggio
         if destinatario_data.get("dnd") == "True":
             print(f"Errore! Messaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
             r.rpush(chat_key, messaggio)
+        clear_screen()  # Cancella l'input e mostra solo i messaggi
 
 # Funzione per avviare la sessione
 def avvia_sessione():
-    clear_screen()
     while True:
-        print("\nOpzioni disponibili:")
+        clear_screen()
+        print("Opzioni disponibili:")
         print("1. Login")
         print("2. Esci")
         scelta = input("Inserisci il numero dell'opzione desiderata: ")
@@ -107,7 +109,15 @@ def avvia_sessione():
             password = input("Password: ")
             user_data = login(username, password)
             if user_data:
+                loading = 0
                 print(f"Benvenuto, {username}!")
+                time.sleep(5)
+                while loading < 100:
+                    clear_screen()
+                    print(f"Loading: {loading}%")
+                    loading += 20
+                    time.sleep(0.5)
+                    
                 while True:
                     print("\nOpzioni disponibili:")
                     print("1. Mostra rubrica")
