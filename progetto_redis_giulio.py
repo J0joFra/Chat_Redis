@@ -111,10 +111,9 @@ def avvia_sessione():
             if user_data:
                 loading = 0
                 print(f"Benvenuto, {username}!")
-                time.sleep(5)
                 while loading < 100:
                     clear_screen()
-                    print(f"Loading: {loading}%")
+                    print(f"\n  Loading: {loading}%")
                     loading += 20
                     time.sleep(0.5)
                     
