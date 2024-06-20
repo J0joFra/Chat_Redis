@@ -1,4 +1,6 @@
 import redis
+import threading
+import time
 
 # Connessione a Redis
 try:
@@ -42,8 +44,7 @@ def menu_interattivo():
             print("1. Mostra rubrica")
             print("2. Aggiungi contatto")
             print("3. Rimuovi contatto")
-            print("4. Invia messaggio")
-            print("5. Leggi messaggi")
+            print("4. Invia/Leggi messaggi")
             print("e. Esci")
             print("=========================")
 
@@ -66,17 +67,8 @@ def menu_interattivo():
                 print(f"Contatto '{contatto_da_rimuovere}' rimosso dalla rubrica.")
 
             elif scelta == "4":
-                destinatario = input("Inserisci il nome del destinatario del messaggio: ")
-                messaggio = input("Inserisci il messaggio da inviare: ")
-                invia_messaggio(username, destinatario, messaggio)
-                print(f"Messaggio inviato a '{destinatario}'.")
-
-            elif scelta == "5":
-                destinatario = input("Inserisci il nome del mittente dei messaggi da leggere: ")
-                messaggi = leggi_messaggi(username, destinatario)
-                print(f"Messaggi tra te e '{destinatario}':")
-                for messaggio in messaggi:
-                    print(messaggio)
+                destinatario = input("Inserisci il nome del destinatario: ")
+                chat_messaggi(username, destinatario)
 
             elif scelta == "e":
                 print("Grazie per aver usato il servizio. Arrivederci!")
@@ -115,23 +107,30 @@ def rimuovi_contatto(username, contatto_da_rimuovere):
     rubrica_key = f"{username}_rubrica"
     r.lrem(rubrica_key, 0, contatto_da_rimuovere)
 
-# Funzione per inviare un messaggio a un contatto
-def invia_messaggio(mittente, destinatario, messaggio):
-    # Crea una chiave per la chat tra mittente e destinatario
+# Funzione per inviare e leggere messaggi
+def chat_messaggi(mittente, destinatario):
     lista = [mittente, destinatario]
     lista.sort()
     chat_key = f"{lista[0]}_{lista[1]}"
 
-    # Aggiungi il messaggio alla chat
-    r.rpush(chat_key, f"{mittente}: {messaggio}")
+    def aggiorna_chat():
+        ultimo_messaggio = len(r.lrange(chat_key, 0, -1))
+        while True:
+            time.sleep(2)
+            messaggi = r.lrange(chat_key, 0, -1)
+            if len(messaggi) > ultimo_messaggio:
+                nuovi_messaggi = messaggi[ultimo_messaggio:]
+                for messaggio in nuovi_messaggi:
+                    print(messaggio)
+                ultimo_messaggio = len(messaggi)
 
-# Funzione per leggere i messaggi da un contatto
-def leggi_messaggi(username, destinatario):
-    lista = [username, destinatario]
-    lista.sort()
-    chat_key = f"{lista[0]}_{lista[1]}"
-    messaggi = r.lrange(chat_key, 0, -1)
-    return messaggi
+    threading.Thread(target=aggiorna_chat, daemon=True).start()
+
+    while True:
+        messaggio = input(f"Inserisci il messaggio da inviare a '{destinatario}' (o 'q' per uscire): ")
+        if messaggio.lower() == 'q':
+            break
+        r.rpush(chat_key, f"{mittente}: {messaggio}")
 
 # Avvio del programma
 if __name__ == "__main__":
