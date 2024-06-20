@@ -25,6 +25,7 @@ def login(username):
         if r.exists(username):  # Username esistente
             user_data = r.hgetall(username)
             password = input(f"Username: {username}\nInserisci la password: ")
+            clear_screen()
             if user_data.get("password") == password:
                 return user_data
             else:
