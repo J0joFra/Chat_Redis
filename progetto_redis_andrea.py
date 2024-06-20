@@ -1,7 +1,7 @@
 import redis
 
 # Connessione a Redis
-r = redis.Redis(host='localhost', port=6380, db=0, charset="utf-8", decode_responses=True, password="miao") #password da hashare
+r = redis.Redis(host='172.17.33.111', port=6380, db=0, charset="utf-8", decode_responses=True, password="miao") # IP TED
 
 # Funzione per gestire il login
 def login(username):
