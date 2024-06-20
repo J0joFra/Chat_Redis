@@ -1,3 +1,4 @@
+import tkinter as tk
 import redis
 import threading
 import time
@@ -13,87 +14,60 @@ except redis.ConnectionError as e:
     exit(1)
 
 # Funzione per gestire il login
-def login(username):
+def login(username, password):
     if r.exists(username):
-        # L'utente esiste già, chiedi la password
         user_data = r.hgetall(username)
-        password = input("Inserisci la password: ")
         if user_data.get("password") == password:
             return user_data
         else:
-            print("Password errata.")
             return None
     else:
-        # Nuovo utente, crea una nuova chiave e chiedi la password
-        password = input("Crea una nuova password: ")
         user_data = {"username": username, "password": password}
         r.hmset(username, user_data)
         return user_data
 
 # Funzione per gestire l'interazione utente
 def menu_interattivo():
-    username = input("Inserisci il tuo username: ")
-    user_data = login(username)
-    if user_data:
-        print(f"Benvenuto, {username}!")
+    root = tk.Tk()
+    root.title("Applicazione di messaggistica")
 
-        while True:
-            print("")
-            print("=========================")
-            print("Operazioni disponibili:")
-            print("1. Mostra rubrica")
-            print("2. Aggiungi contatto")
-            print("3. Rimuovi contatto")
-            print("4. Invia/Leggi messaggi")
-            print("e. Esci")
-            print("=========================")
+    # Funzione per gestire il login
+    def login_gui():
+        username = username_entry.get()
+        password = password_entry.get()
+        user_data = login(username, password)
+        if user_data:
+            print(f"Benvenuto, {username}!")
+            username_entry.delete(0, tk.END)
+            password_entry.delete(0, tk.END)
+            main_window(username)
+        else:
+            print("Accesso negato.")
 
-            scelta = input("Inserisci il numero dell'operazione da eseguire o 'e' per uscire: ")
+    # Finestra di login
+    login_window = tk.Frame(root)
+    login_window.pack(padx=20, pady=20)
 
-            if scelta == "1":
-                contatti = rubrica(username)
-                print(f"Rubrica di {username}:")
-                for contatto in contatti:
-                    print(contatto)
+    username_label = tk.Label(login_window, text="Username:")
+    username_label.pack()
+    username_entry = tk.Entry(login_window)
+    username_entry.pack()
 
-            elif scelta == "2":
-                nuovo_contatto = input("Inserisci il nome del nuovo contatto da aggiungere: ")
-                aggiungi_contatto(username, nuovo_contatto)
-                print(f"Contatto '{nuovo_contatto}' aggiunto alla rubrica.")
+    password_label = tk.Label(login_window, text="Password:")
+    password_label.pack()
+    password_entry = tk.Entry(login_window, show="*")
+    password_entry.pack()
 
-            elif scelta == "3":
-                contatto_da_rimuovere = input("Inserisci il nome del contatto da rimuovere: ")
-                rimuovi_contatto(username, contatto_da_rimuovere)
-                print(f"Contatto '{contatto_da_rimuovere}' rimosso dalla rubrica.")
+    login_button = tk.Button(login_window, text="Login", command=login_gui)
+    login_button.pack(pady=10)
 
-            elif scelta == "4":
-                destinatario = input("Inserisci il nome del destinatario: ")
-                chat_messaggi(username, destinatario)
-
-            elif scelta == "e":
-                print("Grazie per aver usato il servizio. Arrivederci!")
-                break
-
-            else:
-                try:
-                    scelta_numerica = int(scelta)
-                    print("Scelta non valida. Riprova.")
-                except ValueError:
-                    print("Scelta non valida. Riprova.")
-
-    else:
-        print("Accesso negato.")
+    root.mainloop()
 
 # Funzione per gestire la rubrica
 def rubrica(username):
-    # Crea una chiave per la rubrica dell'utente
     rubrica_key = f"{username}_rubrica"
-
-    # Se la rubrica non esiste, creala
     if not r.exists(rubrica_key):
         r.rpush(rubrica_key, username)
-
-    # Restituisci la lista di contatti nella rubrica
     contatti = r.lrange(rubrica_key, 0, -1)
     return contatti
 
@@ -113,24 +87,130 @@ def chat_messaggi(mittente, destinatario):
     lista.sort()
     chat_key = f"{lista[0]}_{lista[1]}"
 
-    def aggiorna_chat():
-        ultimo_messaggio = len(r.lrange(chat_key, 0, -1))
+    def aggiorna_chat(chat_box):
+        messaggi = r.lrange(chat_key, 0, -1)
+        for messaggio in messaggi:
+            chat_box.insert(tk.END, f"{messaggio}\n")
+        ultimo_messaggio = len(messaggi)
         while True:
             time.sleep(2)
             messaggi = r.lrange(chat_key, 0, -1)
             if len(messaggi) > ultimo_messaggio:
                 nuovi_messaggi = messaggi[ultimo_messaggio:]
                 for messaggio in nuovi_messaggi:
-                    print(messaggio)
+                    chat_box.insert(tk.END, f"{messaggio}\n")
                 ultimo_messaggio = len(messaggi)
 
-    threading.Thread(target=aggiorna_chat, daemon=True).start()
+    def invia_messaggio(chat_box, messaggio_entry):
+        messaggio = messaggio_entry.get()
+        if messaggio:
+            r.rpush(chat_key, f"{mittente}: {messaggio}")
+            messaggio_entry.delete(0, tk.END)
 
-    while True:
-        messaggio = input(f"Inserisci il messaggio da inviare a '{destinatario}' (o 'q' per uscire): ")
-        if messaggio.lower() == 'q':
-            break
-        r.rpush(chat_key, f"{mittente}: {messaggio}")
+    chat_box_frame = tk.Frame(main_win)
+    chat_box_frame.pack(padx=10, pady=10)
+
+    chat_box = tk.Text(chat_box_frame, height=20, width=50)
+    chat_box.pack()
+
+    messaggio_entry = tk.Entry(chat_box_frame, width=40)
+    messaggio_entry.pack(side=tk.LEFT, padx=5, pady=5)
+    messaggio_entry.bind("<Return>", lambda event: invia_messaggio(chat_box, messaggio_entry))
+
+    invia_button = tk.Button(chat_box_frame, text="Invia", command=lambda: invia_messaggio(chat_box, messaggio_entry))
+    invia_button.pack(side=tk.LEFT)
+
+    threading.Thread(target=lambda: aggiorna_chat(chat_box), daemon=True).start()
+
+# Funzione per creare la finestra principale
+def main_window(username):
+    global main_win
+    main_win = tk.Toplevel()
+    main_win.title(f"Applicazione di messaggistica - {username}")
+
+    # Funzione per mostrare la rubrica
+    def show_rubrica():
+        contatti = rubrica(username)
+        rubrica_text.delete('1.0', tk.END)
+        rubrica_text.insert(tk.END, f"Rubrica di {username}:\n")
+        for contatto in contatti:
+            rubrica_text.insert(tk.END, f"{contatto}\n")
+
+    # Funzione per aggiungere un contatto
+    def add_contatto():
+        nuovo_contatto = nuovo_contatto_entry.get()
+        aggiungi_contatto(username, nuovo_contatto)
+        nuovo_contatto_entry.delete(0, tk.END)
+        show_rubrica()
+
+    # Funzione per rimuovere un contatto
+    def remove_contatto():
+        contatto_da_rimuovere = rimuovi_contatto_entry.get()
+        rimuovi_contatto(username, contatto_da_rimuovere)
+        rimuovi_contatto_entry.delete(0, tk.END)
+        show_rubrica()
+
+    # Funzione per avviare la modalità do not disturb (interrompi ricezione messaggi)
+
+
+    # Funzione per avviare la chat
+    def start_chat():
+        destinatario = destinatario_entry.get()
+        if destinatario:
+            chat_messaggi(username, destinatario)
+
+    # Frame per la rubrica
+    rubrica_frame = tk.Frame(main_win)
+    rubrica_frame.pack(padx=10, pady=10)
+
+    rubrica_label = tk.Label(rubrica_frame, text="Rubrica:")
+    rubrica_label.pack()
+
+    rubrica_text = tk.Text(rubrica_frame, height=10, width=30)
+    rubrica_text.pack()
+
+    show_rubrica()
+
+    # Frame per aggiungere un contatto
+    add_contatto_frame = tk.Frame(main_win)
+    add_contatto_frame.pack(padx=10, pady=10)
+
+    add_contatto_label = tk.Label(add_contatto_frame, text="Aggiungi contatto:")
+    add_contatto_label.pack(side=tk.LEFT)
+
+    nuovo_contatto_entry = tk.Entry(add_contatto_frame)
+    nuovo_contatto_entry.pack(side=tk.LEFT)
+
+    add_contatto_button = tk.Button(add_contatto_frame, text="Aggiungi", command=add_contatto)
+    add_contatto_button.pack(side=tk.LEFT)
+
+    # Frame per rimuovere un contatto
+    remove_contatto_frame = tk.Frame(main_win)
+    remove_contatto_frame.pack(padx=10, pady=10)
+
+    remove_contatto_label = tk.Label(remove_contatto_frame, text="Rimuovi contatto:")
+    remove_contatto_label.pack(side=tk.LEFT)
+
+    rimuovi_contatto_entry = tk.Entry(remove_contatto_frame)
+    rimuovi_contatto_entry.pack(side=tk.LEFT)
+
+    remove_contatto_button = tk.Button(remove_contatto_frame, text="Rimuovi", command=remove_contatto)
+    remove_contatto_button.pack(side=tk.LEFT)
+
+    # Frame per avviare la chat
+    chat_frame = tk.Frame(main_win)
+    chat_frame.pack(padx=10, pady=10)
+
+    destinatario_label = tk.Label(chat_frame, text="Destinatario:")
+    destinatario_label.pack(side=tk.LEFT)
+
+    destinatario_entry = tk.Entry(chat_frame)
+    destinatario_entry.pack(side=tk.LEFT)
+
+    start_chat_button = tk.Button(chat_frame, text="Avvia chat", command=start_chat)
+    start_chat_button.pack(side=tk.LEFT)
+
+    # Frame per la modalità do not disturb
 
 # Avvio del programma
 if __name__ == "__main__":
