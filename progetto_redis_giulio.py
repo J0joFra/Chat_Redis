@@ -1,7 +1,14 @@
 import redis
 
 # Connessione a Redis
-r = redis.Redis(host='172.17.33.111', port=6380, db=0, charset="utf-8", decode_responses=True, password="miao") # IP TED
+try:
+    r = redis.Redis(host='redis-17160.c328.europe-west3-1.gce.redns.redis-cloud.com',
+                    port=17160, db=0, charset="utf-8", decode_responses=True,
+                    password="n7ZV42GWVg6uyskJc08vBw97Um7lJetQ")
+    r.ping()  # Controlla la connessione
+except redis.ConnectionError as e:
+    print(f"Errore di connessione a Redis: {e}")
+    exit(1)
 
 # Funzione per gestire il login
 def login(username):
