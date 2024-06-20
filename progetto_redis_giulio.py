@@ -118,20 +118,27 @@ def rimuovi_contatto(username, contatto_da_rimuovere):
 # Funzione per inviare un messaggio a un contatto
 def invia_messaggio(mittente, destinatario, messaggio):
     # Crea una chiave per la chat tra mittente e destinatario
-    lista = [mittente,destinatario]
+    lista = [mittente, destinatario]
     lista.sort()
     chat_key = f"{lista[0]}_{lista[1]}"
 
     # Aggiungi il messaggio alla chat
     r.rpush(chat_key, f"{mittente}: {messaggio}")
 
+    lista = [username, destinatario]
+    lista.sort()
+    chat_key = f"{lista[0]}_{lista[1]}"
+    messaggi = r.lrange(chat_key, 0, -1)
+    return messaggi
+
 # Funzione per leggere i messaggi da un contatto
 def leggi_messaggi(username, destinatario):
-    chat_key = f"{username}_{destinatario}"
+    lista = [username, destinatario]
+    lista.sort()
+    chat_key = f"{lista[0]}_{lista[1]}"
     messaggi = r.lrange(chat_key, 0, -1)
     return messaggi
 
 # Avvio del programma
 if __name__ == "__main__":
     menu_interattivo()
-
