@@ -21,19 +21,20 @@ def clear_screen():
 
 # Funzione per gestire il login
 def login(username):
-    if r.exists(username):
-        user_data = r.hgetall(username)
-        password = input("Inserisci la password: ")
-        if user_data.get("password") == password:
+    while True:
+        if r.exists(username): # Username esistente
+            user_data = r.hgetall(username)
+            password = input(f"Username: {username}\nInserisci la password: ")
+            if user_data.get("password") == password:
+                return user_data
+            else:
+                clear_screen()
+                print("Password errata.")
+        else: # Username non esistente
+            password = input("Crea una nuova password: ")
+            user_data = {"username": username, "password": password, "dnd": "False"}
+            r.hmset(username, user_data)
             return user_data
-        else:
-            print("Password errata.")
-            return None
-    else:
-        password = input("Crea una nuova password: ")
-        user_data = {"username": username, "password": password, "dnd": "False"}
-        r.hmset(username, user_data)
-        return user_data
 
 # Funzione per gestire l'interazione utente
 def menu_interattivo():
