@@ -10,6 +10,14 @@ except redis.ConnectionError as e:
     print(f"Errore di connessione a Redis: {e}")
     exit(1)
 
+#pulizia schermo
+def clear_screen():
+    # Rileva il sistema operativo e usa il comando appropriato per pulire lo schermo
+    if os.name == 'nt':  # Se il sistema operativo è Windows
+        os.system('cls')
+    else:  # Altri sistemi operativi (Unix, Linux, Mac)
+        os.system('clear')
+
 # Funzione per gestire il login
 def login(username):
     if r.exists(username):
@@ -35,7 +43,8 @@ def menu_interattivo():
     if user_data:
         print(f"Benvenuto, {username}!")
 
-        while True:
+        z = 0
+        while z == 0:
             print("")
             print("=========================")
             print("Operazioni disponibili:")
@@ -50,10 +59,12 @@ def menu_interattivo():
             scelta = input("Inserisci il numero dell'operazione da eseguire o 'e' per uscire: ")
 
             if scelta == "1":
+                z = 1
                 contatti = rubrica(username)
                 print(f"Rubrica di {username}:")
                 for contatto in contatti:
                     print(contatto)
+                z = input("0 -> Menu / e -> exit")                    
 
             elif scelta == "2":
                 nuovo_contatto = input("Inserisci il nome del nuovo contatto da aggiungere: ")
