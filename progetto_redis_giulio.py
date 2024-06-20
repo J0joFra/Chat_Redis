@@ -43,9 +43,8 @@ def menu_interattivo():
     if user_data:
         print(f"Benvenuto, {username}!")
 
-        z = 0
-        while z == 0:
-            print("")
+        while True:
+            clear_screen()
             print("=========================")
             print("Operazioni disponibili:")
             print("1. Mostra rubrica")
@@ -59,35 +58,43 @@ def menu_interattivo():
             scelta = input("Inserisci il numero dell'operazione da eseguire o 'e' per uscire: ")
 
             if scelta == "1":
-                z = 1
+                clear_screen()
                 contatti = rubrica(username)
                 print(f"Rubrica di {username}:")
                 for contatto in contatti:
                     print(contatto)
-                z = input("0 -> Menu / e -> exit")                    
+                input("\nPremi invio per tornare al menu...")                   
 
             elif scelta == "2":
+                clear_screen()
                 nuovo_contatto = input("Inserisci il nome del nuovo contatto da aggiungere: ")
                 aggiungi_contatto(username, nuovo_contatto)
                 print(f"Contatto '{nuovo_contatto}' aggiunto alla rubrica.")
+                input("\nPremi invio per tornare al menu...")
 
             elif scelta == "3":
+                clear_screen()
                 contatto_da_rimuovere = input("Inserisci il nome del contatto da rimuovere: ")
                 rimuovi_contatto(username, contatto_da_rimuovere)
                 print(f"Contatto '{contatto_da_rimuovere}' rimosso dalla rubrica.")
+                input("\nPremi invio per tornare al menu...")
 
             elif scelta == "4":
+                clear_screen()
                 destinatario = input("Inserisci il nome del destinatario del messaggio: ")
                 messaggio = input("Inserisci il messaggio da inviare: ")
                 invia_messaggio(username, destinatario, messaggio)
                 print(f"Messaggio inviato a '{destinatario}'.")
+                input("\nPremi invio per tornare al menu...")
 
             elif scelta == "5":
+                clear_screen()
                 destinatario = input("Inserisci il nome del mittente dei messaggi da leggere: ")
                 messaggi = leggi_messaggi(username, destinatario)
                 print(f"Messaggi tra te e '{destinatario}':")
                 for messaggio in messaggi:
                     print(messaggio)
+                input("\nPremi invio per tornare al menu...")
 
             elif scelta == "e":
                 print("Grazie per aver usato il servizio. Arrivederci!")
