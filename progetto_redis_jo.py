@@ -65,6 +65,8 @@ def menu_interattivo():
                 for contatto in contatti:
                     print(contatto)
                 input("\nPremi invio per tornare al menu...")
+#=================================================================
+
 import redis
 import threading
 import time
