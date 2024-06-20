@@ -124,10 +124,6 @@ def invia_messaggio(mittente, destinatario, messaggio):
 
     # Aggiungi il messaggio alla chat
     r.rpush(chat_key, f"{mittente}: {messaggio}")
-
-    lista = [username, destinatario]
-    lista.sort()
-    chat_key = f"{lista[0]}_{lista[1]}"
     messaggi = r.lrange(chat_key, 0, -1)
     return messaggi
 
