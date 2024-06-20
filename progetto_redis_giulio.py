@@ -1,4 +1,5 @@
 import redis
+import os
 
 # Connessione a Redis
 try:
@@ -6,13 +7,13 @@ try:
                     port=17160, db=0, charset="utf-8", decode_responses=True,
                     password="n7ZV42GWVg6uyskJc08vBw97Um7lJetQ")
     r.ping()  # Controlla la connessione
+    print("Connessione a Redis riuscita!")
 except redis.ConnectionError as e:
     print(f"Errore di connessione a Redis: {e}")
     exit(1)
 
-#pulizia schermo
+# Pulizia schermo
 def clear_screen():
-    # Rileva il sistema operativo e usa il comando appropriato per pulire lo schermo
     if os.name == 'nt':  # Se il sistema operativo è Windows
         os.system('cls')
     else:  # Altri sistemi operativi (Unix, Linux, Mac)
@@ -21,7 +22,6 @@ def clear_screen():
 # Funzione per gestire il login
 def login(username):
     if r.exists(username):
-        # L'utente esiste già, chiedi la password
         user_data = r.hgetall(username)
         password = input("Inserisci la password: ")
         if user_data.get("password") == password:
@@ -30,9 +30,8 @@ def login(username):
             print("Password errata.")
             return None
     else:
-        # Nuovo utente, crea una nuova chiave e chiedi la password
         password = input("Crea una nuova password: ")
-        user_data = {"username": username, "password": password}
+        user_data = {"username": username, "password": password, "dnd": "False"}
         r.hmset(username, user_data)
         return user_data
 
@@ -52,6 +51,7 @@ def menu_interattivo():
             print("3. Rimuovi contatto")
             print("4. Invia messaggio")
             print("5. Leggi messaggi")
+            print("6. Modalità non disturbare")
             print("e. Esci")
             print("=========================")
 
@@ -63,7 +63,7 @@ def menu_interattivo():
                 print(f"Rubrica di {username}:")
                 for contatto in contatti:
                     print(contatto)
-                input("\nPremi invio per tornare al menu...")                   
+                input("\nPremi invio per tornare al menu...")
 
             elif scelta == "2":
                 clear_screen()
@@ -82,9 +82,13 @@ def menu_interattivo():
             elif scelta == "4":
                 clear_screen()
                 destinatario = input("Inserisci il nome del destinatario del messaggio: ")
-                messaggio = input("Inserisci il messaggio da inviare: ")
-                invia_messaggio(username, destinatario, messaggio)
-                print(f"Messaggio inviato a '{destinatario}'.")
+                destinatario_data = r.hgetall(destinatario)
+                if destinatario_data.get("dnd") == "True":
+                    print(f"Errore! Messaggio non recapitato perché il destinatario è in modalità non disturbare.")
+                else:
+                    messaggio = input("Inserisci il messaggio da inviare: ")
+                    invia_messaggio(username, destinatario, messaggio)
+                    print(f"Messaggio inviato a '{destinatario}'.")
                 input("\nPremi invio per tornare al menu...")
 
             elif scelta == "5":
@@ -96,30 +100,32 @@ def menu_interattivo():
                     print(messaggio)
                 input("\nPremi invio per tornare al menu...")
 
+            elif scelta == "6":
+                clear_screen()
+                dnd_status = user_data.get("dnd") == "True"
+                new_dnd_status = not dnd_status
+                user_data["dnd"] = str(new_dnd_status)
+                r.hmset(username, user_data)
+                print(f"Modalità non disturbare {'attivata' if new_dnd_status else 'disattivata'}.")
+                input("\nPremi invio per tornare al menu...")
+
             elif scelta == "e":
                 print("Grazie per aver usato il servizio. Arrivederci!")
                 break
 
             else:
-                try:
-                    scelta_numerica = int(scelta)
-                    print("Scelta non valida. Riprova.")
-                except ValueError:
-                    print("Scelta non valida. Riprova.")
+                print("Scelta non valida. Riprova.")
+                input("\nPremi invio per tornare al menu...")
 
     else:
         print("Accesso negato.")
+        input("\nPremi invio per uscire...")
 
 # Funzione per gestire la rubrica
 def rubrica(username):
-    # Crea una chiave per la rubrica dell'utente
     rubrica_key = f"{username}_rubrica"
-
-    # Se la rubrica non esiste, creala
     if not r.exists(rubrica_key):
         r.rpush(rubrica_key, username)
-
-    # Restituisci la lista di contatti nella rubrica
     contatti = r.lrange(rubrica_key, 0, -1)
     return contatti
 
@@ -135,15 +141,10 @@ def rimuovi_contatto(username, contatto_da_rimuovere):
 
 # Funzione per inviare un messaggio a un contatto
 def invia_messaggio(mittente, destinatario, messaggio):
-    # Crea una chiave per la chat tra mittente e destinatario
     lista = [mittente, destinatario]
     lista.sort()
     chat_key = f"{lista[0]}_{lista[1]}"
-
-    # Aggiungi il messaggio alla chat
     r.rpush(chat_key, f"{mittente}: {messaggio}")
-    messaggi = r.lrange(chat_key, 0, -1)
-    return messaggi
 
 # Funzione per leggere i messaggi da un contatto
 def leggi_messaggi(username, destinatario):
