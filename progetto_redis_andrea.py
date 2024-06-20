@@ -1,6 +1,6 @@
 import redis
 
-# Connessione a Redis di Giulio
+# Connessione a Redis
 try:
     r = redis.Redis(host='redis-17160.c328.europe-west3-1.gce.redns.redis-cloud.com',
                     port=17160, db=0, charset="utf-8", decode_responses=True,
@@ -9,7 +9,7 @@ try:
 except redis.ConnectionError as e:
     print(f"Errore di connessione a Redis: {e}")
     exit(1)
-    
+
 # Funzione per gestire il login
 def login(username):
     if r.exists(username):
@@ -118,14 +118,18 @@ def rimuovi_contatto(username, contatto_da_rimuovere):
 # Funzione per inviare un messaggio a un contatto
 def invia_messaggio(mittente, destinatario, messaggio):
     # Crea una chiave per la chat tra mittente e destinatario
-    chat_key = f"{mittente}_{destinatario}"
+    lista = [mittente, destinatario]
+    lista.sort()
+    chat_key = f"{lista[0]}_{lista[1]}"
 
     # Aggiungi il messaggio alla chat
     r.rpush(chat_key, f"{mittente}: {messaggio}")
 
 # Funzione per leggere i messaggi da un contatto
 def leggi_messaggi(username, destinatario):
-    chat_key = f"{username}_{destinatario}"
+    lista = [username, destinatario]
+    lista.sort()
+    chat_key = f"{lista[0]}_{lista[1]}"
     messaggi = r.lrange(chat_key, 0, -1)
     return messaggi
 
