@@ -2,4 +2,11 @@
 Esercizi Big Jo + Hulk Giulio + Pipita Ted 💪🏽
 
 LINK UTILI:
-https://github.com/J0joFra/itsar-bd-23-35/blob/main/RedisConnection.py #file connessione
+https://drive.google.com/drive/folders/16wCQ13RUCosvAWmFPZGenjQp_Hvw88wE #drive del prof TUTORIAL REDIS
+
+SCADENZA
+1 luglio 2024
+
+
+
+
