@@ -60,7 +60,6 @@ def rimuovi_contatto(username, contatto_da_rimuovere):
 
 # Funzione per inviare e leggere messaggi
 def chat_messaggi(mittente, destinatario):
-    clear_screen()
     lista = [mittente, destinatario]
     lista.sort()
     chat_key = f"{lista[0]}_{lista[1]}"
@@ -70,17 +69,16 @@ def chat_messaggi(mittente, destinatario):
     def aggiorna_chat():
         ultimo_messaggio = 0
         while True:
-            time.sleep(2)
+            clear_screen()
             messaggi = r.lrange(chat_key, 0, -1)
-            if len(messaggi) > ultimo_messaggio:
-                nuovi_messaggi = messaggi[ultimo_messaggio:]
-                for messaggio in nuovi_messaggi:
-                    if messaggio.startswith("Me >> "):
-                        print(f"{messaggio}")
-                    else:
-                        print(f"{destinatario} << {messaggio}")
-                ultimo_messaggio = len(messaggi)
-                time.sleep(3) #3 sec
+            for messaggio in messaggi:
+                if messaggio.startswith(f"{mittente}: "): #Vista mittente
+                    messaggio_testo = messaggio[len(f"{mittente}: "):]
+                    print(messaggio_testo.rjust(80))  # Allinea a destra
+                else: #Vista destinatario
+                    print(messaggio)
+            ultimo_messaggio = len(messaggi)
+            time.sleep(5) #5 sec prima di ricaricare
 
     threading.Thread(target=aggiorna_chat, daemon=True).start()
 
@@ -88,7 +86,7 @@ def chat_messaggi(mittente, destinatario):
         messaggio = input() # Solo input del messaggio, senza prompt
         if messaggio.strip().lower() == 'exit':
             break
-        messaggio = "Me >> " + messaggio  # Formatta il messaggio
+        messaggio_formattato = f"{mittente}: {messaggio}"  # Formatta il messaggio
         if destinatario_data.get("dnd") == "True":
             print(f"Errore! Messaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
