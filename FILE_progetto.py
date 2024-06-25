@@ -169,7 +169,11 @@ def avvia_sessione():
 
                     elif opzione == '4':
                         destinatario = input("Inserisci il destinatario della chat: ")
-                        chat_messaggi(username, destinatario)
+                        if destinatario in rubrica(username):
+                            chat_messaggi(username, destinatario)
+                        else:
+                            print(f"Errore!\nIl destinatario {destinatario} non è presente nella rubrica.")
+                            time.sleep(3)
 
                     elif opzione == '5':
                         toggle_dnd(username)
