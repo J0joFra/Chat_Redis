@@ -39,7 +39,7 @@ def login(username):
         else:  # Username non esistente
             password = input("Crea una nuova password: ")
             user_data = {"username": username, "password": password, "dnd": "False"}
-            r.hmset(username, user_data)
+            r.hset(username, mapping=user_data)
             return user_data
 
 # Funzione per gestire la rubrica
@@ -71,20 +71,23 @@ def chat_messaggi(mittente, destinatario):
     destinatario_data = r.hgetall(destinatario)
     
     def aggiorna_chat():
+        last_shown_index = 0
         while True:
-            clear_screen()
             messaggi = r.lrange(chat_key, 0, -1)
-            for messaggio in messaggi:
-                if messaggio.startswith(f"{mittente}: "):
-                    msg, timestamp = messaggio.rsplit(' ', 1)
-                    msg = "\u00b7 "+msg[len(mittente) + 2:]
-                    print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
-                else:
-                    if messaggio.startswith("\u00b7 "):  # messaggio mittente vecchio
-                        print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
-                    else:  # messaggio destinatario
-                        print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio}")
-            time.sleep(5)
+            new_messages = messaggi[last_shown_index:]
+            if new_messages:
+                for messaggio in new_messages:
+                    if messaggio.startswith(f"{mittente}: "):
+                        msg, timestamp = messaggio.rsplit(' ', 1)
+                        msg = "\u00b7 "+msg[len(mittente) + 2:]
+                        print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
+                    else:
+                        if messaggio.startswith("\u00b7 "):  # messaggio mittente vecchio
+                            print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
+                        else:  # messaggio destinatario
+                            print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio}")
+                last_shown_index += len(new_messages)
+            time.sleep(1)  # Riduco il delay per aggiornamenti più frequenti
     
     threading.Thread(target=aggiorna_chat, daemon=True).start()
     
@@ -98,7 +101,6 @@ def chat_messaggi(mittente, destinatario):
             print(f"Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
             r.rpush(chat_key, messaggio_formattato)
-            clear_screen()  # Cancella l'input e mostra solo i messaggi
 
 # Funzione per attivare/disattivare la modalità non disturbare
 def toggle_dnd(username):
@@ -107,14 +109,12 @@ def toggle_dnd(username):
     new_dnd_status = "False" if dnd_status == "True" else "True"
     r.hset(username, "dnd", new_dnd_status)
     clear_screen()
-    time.sleep(2)
     if new_dnd_status == 'True':
         print("Modalità 'non disturbare' attivata")
-        time.sleep(5)
     else:
         print("Modalità 'non disturbare' disattivata")
-        time.sleep(5)
-    
+    time.sleep(2)
+
 # Funzione per avviare la sessione
 def avvia_sessione():
     while True:
@@ -138,7 +138,6 @@ def avvia_sessione():
                     time.sleep(0.02)
                 print("\nLoading complete!")
                
-
                 while True:
                     clear_screen()              
                     print("Opzioni disponibili:")
