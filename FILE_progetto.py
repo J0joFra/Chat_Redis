@@ -159,8 +159,16 @@ def avvia_sessione():
 
                     elif opzione == '2':
                         nuovo_contatto = input("Inserisci un nuovo contatto: ")
-                        aggiungi_contatto(username, nuovo_contatto)
-                        print(f"Contatto {nuovo_contatto} aggiunto alla rubrica.")
+                        if r.exists(nuovo_contatto):
+                            if nuovo_contatto not in rubrica(username):
+                                aggiungi_contatto(username, nuovo_contatto)
+                                print(f"Contatto {nuovo_contatto} aggiunto alla rubrica.")
+                            else:
+                                print(f"Errore!\nIl contatto {nuovo_contatto} è già presente nella rubrica.")
+                                time.sleep(3)
+                        else:
+                            print(f"Errore!\nIl contatto {nuovo_contatto} non è presente nel sistema.")
+                            time.sleep(3)
 
                     elif opzione == '3':
                         contatto_da_rimuovere = input("Inserisci il contatto da rimuovere: ")
