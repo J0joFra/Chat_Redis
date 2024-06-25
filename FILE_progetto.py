@@ -130,12 +130,15 @@ def avvia_sessione():
             if user_data:
                 loading = 0
                 print(f"Benvenuto, {username}!")
-                while loading < 100:
-                    clear_screen()
-                    print(f"\n  Loading: {loading}%")
-                    loading += 20
-                    time.sleep(0.5)
+                width = 50
+                for i in range(101):
+                    progress = "=" * int(width * i / 100)
+                    spaces = " " * (width - len(progress))
+                    print(f"\rLoading: [{progress}{spaces}] {i}%", end="", flush=True)
+                    time.sleep(0.02)
+                print("\nLoading complete!")
                
+
                 while True:
                     clear_screen()              
                     print("Opzioni disponibili:")
