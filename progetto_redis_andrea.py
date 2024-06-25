@@ -1,6 +1,11 @@
 import redis
 import threading
 import time
+import os
+from datetime import datetime
+from colorama import Fore, Style, Back, init
+
+init(autoreset=True)  # Inizializza colorama
 
 # Connessione a Redis
 try:
@@ -12,18 +17,30 @@ except redis.ConnectionError as e:
     print(f"Errore di connessione a Redis: {e}")
     exit(1)
 
+# Pulizia schermo
+def clear_screen():
+    if os.name == 'nt':  # Se il sistema operativo è Windows
+        os.system('cls')
+    else:  # Altri sistemi operativi (Unix, Linux, Mac)
+        os.system('clear')
+
 # Funzione per gestire il login
-def login(username, password):
-    if r.exists(username):
-        user_data = r.hgetall(username)
-        if user_data.get("password") == password:
+def login(username):
+    while True:
+        if r.exists(username):  # Username esistente
+            user_data = r.hgetall(username)  # Get di tutti gli username
+            clear_screen()
+            password = input(f"Username: {username}\nInserisci la password: ")
+            if user_data.get("password") == password:
+                return user_data
+            else:
+                clear_screen()
+                print("Password errata.")
+        else:  # Username non esistente
+            password = input("Crea una nuova password: ")
+            user_data = {"username": username, "password": password, "dnd": "False"}
+            r.hmset(username, user_data)
             return user_data
-        else:
-            return None
-    else:
-        user_data = {"username": username, "password": password}
-        r.hmset(username, user_data)
-        return user_data
 
 # Funzione per gestire la rubrica
 def rubrica(username):
@@ -35,11 +52,13 @@ def rubrica(username):
 
 # Funzione per aggiungere un contatto alla rubrica
 def aggiungi_contatto(username, nuovo_contatto):
+    clear_screen()
     rubrica_key = f"{username}_rubrica"
     r.rpush(rubrica_key, nuovo_contatto)
 
 # Funzione per rimuovere un contatto dalla rubrica
 def rimuovi_contatto(username, contatto_da_rimuovere):
+    clear_screen()
     rubrica_key = f"{username}_rubrica"
     r.lrem(rubrica_key, 0, contatto_da_rimuovere)
 
@@ -51,48 +70,61 @@ def chat_messaggi(mittente, destinatario):
 
     destinatario_data = r.hgetall(destinatario)
 
-    def aggiorna_chat():
-        ultimo_messaggio = 0
-        while True:
-            time.sleep(2)
-            messaggi = r.lrange(chat_key, 0, -1)
-            if len(messaggi) > ultimo_messaggio:
-                nuovi_messaggi = messaggi[ultimo_messaggio:]
-                for messaggio in nuovi_messaggi:
-                    if messaggio.startswith(">"):
-                        print(f"{messaggio}")
-                    else:
-                        print(f"< {messaggio}")
-                ultimo_messaggio = len(messaggi)
+def aggiorna_chat():
+    while True:
+        clear_screen()
+        messaggi = r.lrange(chat_key, 0, -1)
+        for messaggio in messaggi:
+            #Estrarre msg e timestamp dal messaggio
+            if messaggio.startswith(f"{mittente}: "):
+                msg, timestamp = messaggio.rsplit(' ', 1)
+                msg = "\u00b7 "+msg[len(mittente) + 2:]
+                print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")  # Allineato a destra + ora
+            else:
+                if messaggio.startswith("\u00b7 "): #messaggio mittente vecchio
+                    print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
+                else: #messaggio destinatario
+                    print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio}")
+        time.sleep(5)
 
     threading.Thread(target=aggiorna_chat, daemon=True).start()
 
     while True:
-        messaggio = input(f"Inserisci un messaggio per {destinatario}: ")
+        messaggio = input()  # Solo input del messaggio, senza prompt
         if messaggio.strip().lower() == 'exit':
             break
-        messaggio = "> " + messaggio
+        timestamp = datetime.now().strftime('%H:%M')
+        messaggio_formattato = f"{mittente}: {messaggio} {timestamp}"  # Formato messaggio con il timestamp
         if destinatario_data.get("dnd") == "True":
-            print(f"Errore! Messaggio non recapitato perché il destinatario è in modalità non disturbare.")
+            print(f"Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
-            r.rpush(chat_key, messaggio)
+            r.rpush(chat_key, messaggio_formattato)
+        clear_screen()  # Cancella l'input e mostra solo i messaggi
 
 # Funzione per avviare la sessione
 def avvia_sessione():
     while True:
-        print("\nOpzioni disponibili:")
+        clear_screen()
+        print("Opzioni disponibili:")
         print("1. Login")
         print("2. Esci")
         scelta = input("Inserisci il numero dell'opzione desiderata: ")
 
         if scelta == '1':
             username = input("Username: ")
-            password = input("Password: ")
-            user_data = login(username, password)
+            user_data = login(username)
             if user_data:
+                loading = 0
                 print(f"Benvenuto, {username}!")
+                while loading < 100:
+                    clear_screen()
+                    print(f"\n  Loading: {loading}%")
+                    loading += 20
+                    time.sleep(0.5)
+               
                 while True:
-                    print("\nOpzioni disponibili:")
+                    clear_screen()              
+                    print("Opzioni disponibili:")
                     print("1. Mostra rubrica")
                     print("2. Aggiungi contatto")
                     print("3. Rimuovi contatto")
@@ -101,13 +133,15 @@ def avvia_sessione():
                     opzione = input("Inserisci il numero dell'opzione desiderata: ")
 
                     if opzione == '1':
+                        clear_screen()
                         contatti = rubrica(username)
                         print(f"Rubrica di {username}:")
                         for contatto in contatti:
                             print(contatto)
+                        time.sleep(10)
 
                     elif opzione == '2':
-                        nuovo_contatto = input("Inserisci il nuovo contatto: ")
+                        nuovo_contatto = input("Inserisci un nuovo contatto: ")
                         aggiungi_contatto(username, nuovo_contatto)
                         print(f"Contatto {nuovo_contatto} aggiunto alla rubrica.")
 
@@ -127,13 +161,9 @@ def avvia_sessione():
                     else:
                         print("Opzione non valida. Riprova.")
 
-            else:
-                print("Accesso negato. Username o password errati.")
-
         elif scelta == '2':
             print("Grazie per aver usato l'applicazione.")
             break
-
         else:
             print("Opzione non valida. Riprova.")
 
