@@ -2,6 +2,10 @@ import redis
 import threading
 import time
 import os
+from datetime import datetime
+from colorama import Fore, Style, init
+
+init(autoreset=True)  # Inizializza colorama
 
 # Connessione a Redis
 try:
@@ -12,6 +16,7 @@ try:
 except redis.ConnectionError as e:
     print(f"Errore di connessione a Redis: {e}")
     exit(1)
+
 # Pulizia schermo
 def clear_screen():
     if os.name == 'nt':  # Se il sistema operativo è Windows
@@ -23,9 +28,9 @@ def clear_screen():
 def login(username):
     while True:
         if r.exists(username):  # Username esistente
-            user_data = r.hgetall(username)
-            password = input(f"Username: {username}\nInserisci la password: ")
+            user_data = r.hgetall(username)  # Get di tutti gli username
             clear_screen()
+            password = input(f"Username: {username}\nInserisci la password: ")
             if user_data.get("password") == password:
                 return user_data
             else:
@@ -39,7 +44,6 @@ def login(username):
 
 # Funzione per gestire la rubrica
 def rubrica(username):
-    clear_screen()
     rubrica_key = f"{username}_rubrica"
     if not r.exists(rubrica_key):
         r.rpush(rubrica_key, username)
@@ -63,36 +67,54 @@ def chat_messaggi(mittente, destinatario):
     lista = [mittente, destinatario]
     lista.sort()
     chat_key = f"{lista[0]}_{lista[1]}"
-
+    
     destinatario_data = r.hgetall(destinatario)
-
+    
     def aggiorna_chat():
-        ultimo_messaggio = 0
         while True:
             clear_screen()
             messaggi = r.lrange(chat_key, 0, -1)
             for messaggio in messaggi:
-                if messaggio.startswith(f"{mittente}: "): #Vista mittente
-                    messaggio_testo = messaggio[len(f"{mittente}: "):]
-                    print(messaggio_testo.rjust(80))  # Allinea a destra
-                else: #Vista destinatario
-                    print(messaggio)
-            ultimo_messaggio = len(messaggi)
-            time.sleep(5) #5 sec prima di ricaricare
-
+                if messaggio.startswith(f"{mittente}: "):
+                    msg, timestamp = messaggio.rsplit(' ', 1)
+                    msg = "\u00b7 "+msg[len(mittente) + 2:]
+                    print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
+                else:
+                    if messaggio.startswith("\u00b7 "):  # messaggio mittente vecchio
+                        print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
+                    else:  # messaggio destinatario
+                        print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio}")
+            time.sleep(5)
+    
     threading.Thread(target=aggiorna_chat, daemon=True).start()
-
+    
     while True:
-        messaggio = input() # Solo input del messaggio, senza prompt
+        messaggio = input()  # Solo input del messaggio, senza prompt
         if messaggio.strip().lower() == 'exit':
             break
-        messaggio_formattato = f"{mittente}: {messaggio}"  # Formatta il messaggio
+        timestamp = datetime.now().strftime('%H:%M')
+        messaggio_formattato = f"{mittente}: {messaggio} {timestamp}"  # Formato messaggio con il timestamp
         if destinatario_data.get("dnd") == "True":
-            print(f"Errore! Messaggio non recapitato perché il destinatario è in modalità non disturbare.")
+            print(f"Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
-            r.rpush(chat_key, messaggio)
-        clear_screen()  # Cancella l'input e mostra solo i messaggi
+            r.rpush(chat_key, messaggio_formattato)
+            clear_screen()  # Cancella l'input e mostra solo i messaggi
 
+# Funzione per attivare/disattivare la modalità non disturbare
+def toggle_dnd(username):
+    user_data = r.hgetall(username)
+    dnd_status = user_data.get("dnd", "False")
+    new_dnd_status = "False" if dnd_status == "True" else "True"
+    r.hset(username, "dnd", new_dnd_status)
+    clear_screen()
+    time.sleep(2)
+    if new_dnd_status == 'True':
+        print("Modalità 'non disturbare' attivata")
+        time.sleep(5)
+    else:
+        print("Modalità 'non disturbare' disattivata")
+        time.sleep(5)
+    
 # Funzione per avviare la sessione
 def avvia_sessione():
     while True:
@@ -104,8 +126,7 @@ def avvia_sessione():
 
         if scelta == '1':
             username = input("Username: ")
-            password = input("Password: ")
-            user_data = login(username, password)
+            user_data = login(username)
             if user_data:
                 loading = 0
                 print(f"Benvenuto, {username}!")
@@ -114,24 +135,28 @@ def avvia_sessione():
                     print(f"\n  Loading: {loading}%")
                     loading += 20
                     time.sleep(0.5)
-                    
+               
                 while True:
-                    print("\nOpzioni disponibili:")
+                    clear_screen()              
+                    print("Opzioni disponibili:")
                     print("1. Mostra rubrica")
                     print("2. Aggiungi contatto")
                     print("3. Rimuovi contatto")
                     print("4. Avvia chat")
-                    print("5. Logout")
+                    print("5. Attiva/Disattiva modalità 'non disturbare'")
+                    print("6. Logout")
                     opzione = input("Inserisci il numero dell'opzione desiderata: ")
 
                     if opzione == '1':
+                        clear_screen()
                         contatti = rubrica(username)
                         print(f"Rubrica di {username}:")
                         for contatto in contatti:
                             print(contatto)
+                        time.sleep(10)
 
                     elif opzione == '2':
-                        nuovo_contatto = input("Inserisci il nuovo contatto: ")
+                        nuovo_contatto = input("Inserisci un nuovo contatto: ")
                         aggiungi_contatto(username, nuovo_contatto)
                         print(f"Contatto {nuovo_contatto} aggiunto alla rubrica.")
 
@@ -145,19 +170,18 @@ def avvia_sessione():
                         chat_messaggi(username, destinatario)
 
                     elif opzione == '5':
+                        toggle_dnd(username)
+
+                    elif opzione == '6':
                         print(f"Logout effettuato per l'utente {username}.")
                         break
 
                     else:
                         print("Opzione non valida. Riprova.")
 
-            else:
-                print("Accesso negato. Username o password errati.")
-
         elif scelta == '2':
             print("Grazie per aver usato l'applicazione.")
             break
-
         else:
             print("Opzione non valida. Riprova.")
 
