@@ -109,7 +109,7 @@ def chat_messaggi_temporanea(mittente, destinatario):
     chat_key = f"{lista[0]}_{lista[1]}_temp"
     
     destinatario_data = r.hgetall(destinatario)
-    
+
     def aggiorna_chat():
         last_shown_index = 0
         while True:
@@ -131,30 +131,39 @@ def chat_messaggi_temporanea(mittente, destinatario):
 
     def monitor_chat_timeout():
         while True:
+            # Verifica e inizializza la chiave come hash se non esiste
+            if not r.exists(chat_key):
+                r.hmset(chat_key, {})  # Inizializza come hash
+
             last_message_time = r.hget(chat_key, 'last_message_timestamp')
             if last_message_time:
                 last_message_time = datetime.strptime(last_message_time, '%Y-%m-%d %H:%M:%S')
-                if datetime.now() - last_message_time > timedelta(minutes=2):
-                    r.delete(chat_key)
-                    print(f"\nLa chat tra {mittente} e {destinatario} è stata eliminata per inattività.")
-                    break
+                if datetime.now() - last_message_time > timedelta(minutes=1):
+                    # Ottieni e elimina tutti i messaggi dalla chat temporanea
+                    messaggi = r.lrange(chat_key, 0, -1)
+                    if messaggi:
+                        r.delete(chat_key)
+                        print(f"\nLa chat tra {mittente} e {destinatario} è stata eliminata per inattività.")
+                        break
             time.sleep(5)
-    
+
     threading.Thread(target=aggiorna_chat, daemon=True).start()
-    
+
     while True:
         messaggio = input()  # Solo input del messaggio, senza prompt
         if messaggio.strip().lower() == 'exit':
             break
-        timestamp = datetime.now().strftime('%H:%M')
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         messaggio_formattato = f"{mittente}: {messaggio} {timestamp}"  # Formato messaggio con il timestamp
         if destinatario_data.get("dnd") == "True":
             print(f"Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
             r.rpush(chat_key, messaggio_formattato)
-            r.hset(chat_key, 'last_message_timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    
+            r.hset(chat_key, 'last_message_timestamp', timestamp)  # Aggiornamento timestamp
+
     threading.Thread(target=monitor_chat_timeout, daemon=True).start()
+
+    print(f"\nLa chat tra {mittente} e {destinatario} è stata chiusa.")
 
 # Funzione per attivare/disattivare la modalità non disturbare
 def toggle_dnd(username):
@@ -210,7 +219,7 @@ def avvia_sessione():
                         print(f"Rubrica di {username}:")
                         for contatto in contatti:
                             print(contatto)
-                        time.sleep(10)
+                        input("\nPremi INVIO per continuare...")
 
                     elif opzione == '2':
                         nuovo_contatto = input("Inserisci un nuovo contatto: ")
