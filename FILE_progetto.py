@@ -111,6 +111,7 @@ def chat_messaggi_temporanea(mittente, destinatario):
     destinatario_data = r.hgetall(destinatario)
 
     def aggiorna_chat():
+        clear_screen()  # Assicura che la chat sia vuota all'avvio
         last_shown_index = 0
         while True:
             messaggi = r.lrange(chat_key, 0, -1)
@@ -130,24 +131,32 @@ def chat_messaggi_temporanea(mittente, destinatario):
             time.sleep(1)  # Riduco il delay per aggiornamenti più frequenti
 
     def monitor_chat_timeout():
+        timeout_seconds = 0
         while True:
-            try:
-                messaggi = r.lrange(chat_key, 0, -1)
-                if messaggi:
-                    last_message_time_str = messaggi[-1].rsplit(' ', 1)[-1]
-                    last_message_time = datetime.strptime(last_message_time_str, '%H:%M:%S')
-                    if datetime.now() - last_message_time > timedelta(minutes=1):
-                        r.delete(chat_key)
-                        clear_screen()
-                        print(f"\nLa chat tra {mittente} e {destinatario} è stata eliminata per inattività.")
-            except redis.exceptions.ResponseError as e:
-                print(f"Errore Redis: {e}")
-            time.sleep(3)
-
+            start_time = time.time()
+            while True:
+                time.sleep(1)
+                elapsed_time = time.time() - start_time
+                if elapsed_time >= 60:
+                    timeout_seconds += elapsed_time
+                    break
+                if r.llen(chat_key) > 0:
+                    timeout_seconds = 0
+            
+            if timeout_seconds >= 60:
+                r.delete(chat_key)
+                clear_screen()
+                print(f"\nLa chat tra {mittente} e {destinatario} è stata eliminata per inattività.")
+                return True  # Indica che la chat è stata eliminata per inattività
+    
     threading.Thread(target=aggiorna_chat, daemon=True).start()
-    threading.Thread(target=monitor_chat_timeout, daemon=True).start()
+    monitor_thread = threading.Thread(target=monitor_chat_timeout)
+    monitor_thread.start()
 
     while True:
+        if not monitor_thread.is_alive():
+            break
+
         messaggio = input()  # Solo input del messaggio, senza prompt
         if messaggio.strip().lower() == 'exit':
             break
@@ -159,6 +168,8 @@ def chat_messaggi_temporanea(mittente, destinatario):
             r.rpush(chat_key, messaggio_formattato)
             
     print(f"\nLa chat tra {mittente} e {destinatario} è stata chiusa.")
+
+    time.sleep(2)  # Breve pausa prima di tornare al menu principale
 
 # Funzione per attivare/disattivare la modalità non disturbare
 def toggle_dnd(username):
@@ -269,3 +280,6 @@ def avvia_sessione():
 # Avvio del programma
 if __name__ == "__main__":
     avvia_sessione()
+    
+    
+    
