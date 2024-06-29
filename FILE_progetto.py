@@ -119,7 +119,7 @@ def chat_messaggi_temporanea(mittente, destinatario):
                 for messaggio in new_messages:
                     if messaggio.startswith(f"{mittente}: "):
                         msg, timestamp = messaggio.rsplit(' ', 1)
-                        msg = "\u00b7 "+msg[len(mittente) + 2:]
+                        msg = "\u00b7 " + msg[len(mittente) + 2:]
                         print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
                     else:
                         if messaggio.startswith("\u00b7 "):  # messaggio mittente vecchio
@@ -131,38 +131,33 @@ def chat_messaggi_temporanea(mittente, destinatario):
 
     def monitor_chat_timeout():
         while True:
-            # Verifica e inizializza la chiave come hash se non esiste
-            if not r.exists(chat_key):
-                r.hmset(chat_key, {})  # Inizializza come hash
-
-            last_message_time = r.hget(chat_key, 'last_message_timestamp')
-            if last_message_time:
-                last_message_time = datetime.strptime(last_message_time, '%Y-%m-%d %H:%M:%S')
-                if datetime.now() - last_message_time > timedelta(minutes=1):
-                    # Ottieni e elimina tutti i messaggi dalla chat temporanea
-                    messaggi = r.lrange(chat_key, 0, -1)
-                    if messaggi:
+            try:
+                messaggi = r.lrange(chat_key, 0, -1)
+                if messaggi:
+                    last_message_time_str = messaggi[-1].rsplit(' ', 1)[-1]
+                    last_message_time = datetime.strptime(last_message_time_str, '%H:%M:%S')
+                    if datetime.now() - last_message_time > timedelta(minutes=1):
                         r.delete(chat_key)
+                        clear_screen()
                         print(f"\nLa chat tra {mittente} e {destinatario} è stata eliminata per inattività.")
-                        break
-            time.sleep(5)
+            except redis.exceptions.ResponseError as e:
+                print(f"Errore Redis: {e}")
+            time.sleep(3)
 
     threading.Thread(target=aggiorna_chat, daemon=True).start()
+    threading.Thread(target=monitor_chat_timeout, daemon=True).start()
 
     while True:
         messaggio = input()  # Solo input del messaggio, senza prompt
         if messaggio.strip().lower() == 'exit':
             break
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.now().strftime('%H:%M:%S')
         messaggio_formattato = f"{mittente}: {messaggio} {timestamp}"  # Formato messaggio con il timestamp
         if destinatario_data.get("dnd") == "True":
             print(f"Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
             r.rpush(chat_key, messaggio_formattato)
-            r.hset(chat_key, 'last_message_timestamp', timestamp)  # Aggiornamento timestamp
-
-    threading.Thread(target=monitor_chat_timeout, daemon=True).start()
-
+            
     print(f"\nLa chat tra {mittente} e {destinatario} è stata chiusa.")
 
 # Funzione per attivare/disattivare la modalità non disturbare
