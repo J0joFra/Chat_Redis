@@ -1,191 +1,174 @@
+import streamlit as st
 import redis
-import threading
 import time
-import os
 from datetime import datetime
-from colorama import Fore, Style, init
-
-init(autoreset=True)
 
 # Connessione a Redis
 try:
-    r = redis.Redis(host='redis-11602.c304.europe-west1-2.gce.redns.redis-cloud.com',
-                    port=11602, db=0, charset="utf-8", decode_responses=True,
-                    password="aoabFoYLlhgn4EzDNPwtre5RoFGgCNiU")
+    r = redis.Redis(
+        host='redis-11602.c304.europe-west1-2.gce.redns.redis-cloud.com',
+        port=11602, db=0, charset="utf-8", decode_responses=True,
+        password="aoabFoYLlhgn4EzDNPwtre5RoFGgCNiU"
+    )
     r.ping()
 except redis.ConnectionError as e:
-    print(f"Errore di connessione a Redis: {e}")
-    exit(1)
-
-def clear_screen():
-    if os.name == 'nt':
-        os.system('cls')
-    else:
-        os.system('clear')
+    st.error(f"Errore di connessione a Redis: {e}")
+    st.stop()
 
 def login(username):
-    while True:
-        if r.exists(username):
-            user_data = r.hgetall(username)
-            clear_screen()
-            password = input(f"Username: {username}\nInserisci la password: ")
+    if r.exists(username):
+        password = st.text_input("Inserisci la password:", type="password")
+        user_data = r.hgetall(username)
+        if st.button("Login", key=f"login_{username}"):
             if user_data.get("password") == password:
-                return user_data
+                st.session_state["logged_in"] = True
+                st.session_state["username"] = username
+                st.session_state["user_data"] = user_data
             else:
-                clear_screen()
-                print("Password errata.")
-        else:
-            password = input("Crea una nuova password: ")
+                st.error("Password errata.")
+    else:
+        password = st.text_input("Crea una nuova password:", type="password")
+        if st.button("Registrati", key=f"register_{username}"):
             user_data = {"username": username, "password": password, "dnd": "False"}
             r.hset(username, mapping=user_data)
-            return user_data
+            st.session_state["logged_in"] = True
+            st.session_state["username"] = username
+            st.session_state["user_data"] = user_data
 
-def rubrica(username):
+def mostra_rubrica(username):
     rubrica_key = f"{username}_rubrica"
     if not r.exists(rubrica_key):
         r.rpush(rubrica_key, username)
     contatti = r.lrange(rubrica_key, 0, -1)
-    return contatti
+    st.write("La tua rubrica:")
+    for contatto in contatti:
+        st.write(f"- {contatto}")
 
-def aggiungi_contatto(username, nuovo_contatto):
-    clear_screen()
-    rubrica_key = f"{username}_rubrica"
-    r.rpush(rubrica_key, nuovo_contatto)
+def aggiungi_contatto(username):
+    nuovo_contatto = st.text_input("Inserisci un nuovo contatto:")
+    if st.button("Aggiungi", key=f"aggiungi_contatto_{username}"):
+        if r.exists(nuovo_contatto):
+            if nuovo_contatto not in r.lrange(f"{username}_rubrica", 0, -1):
+                r.rpush(f"{username}_rubrica", nuovo_contatto)
+                st.success(f"Contatto {nuovo_contatto} aggiunto alla rubrica.")
+            else:
+                st.error(f"Il contatto {nuovo_contatto} è già presente nella rubrica.")
+        else:
+            st.error(f"Il contatto {nuovo_contatto} non è presente nel sistema.")
 
-def rimuovi_contatto(username, contatto_da_rimuovere):
-    clear_screen()
-    rubrica_key = f"{username}_rubrica"
-    r.lrem(rubrica_key, 0, contatto_da_rimuovere)
+def rimuovi_contatto(username):
+    contatto_da_rimuovere = st.text_input("Inserisci il contatto da rimuovere:")
+    if st.button("Rimuovi", key=f"rimuovi_contatto_{username}"):
+        r.lrem(f"{username}_rubrica", 0, contatto_da_rimuovere)
+        st.success(f"Contatto {contatto_da_rimuovere} rimosso dalla rubrica.")
 
 def chat_messaggi(mittente, destinatario):
     lista = [mittente, destinatario]
     lista.sort()
     chat_key = f"{lista[0]}_{lista[1]}"
-    destinatario_data = r.hgetall(destinatario)
     
-    def aggiorna_chat():
-        last_shown_index = 0
-        try:
-            while True:
-                messaggi = r.lrange(chat_key, 0, -1)
-                new_messages = messaggi[last_shown_index:]
-                if new_messages:
-                    for messaggio in new_messages:
-                        timestamp = messaggio[-5:]
-                        if messaggio.startswith(f"{mittente}: "):
-                            msg = "\u00b7 " + messaggio[len(mittente) + 2:-5]
-                            print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
-                        else:
-                            if messaggio.startswith("\u00b7 "):
-                                print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
-                            else:
-                                print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio[:-5]}\n{timestamp}")
-                    last_shown_index += len(new_messages)
-                time.sleep(1)
-        except Exception as e:
-            print(f"Errore durante l'aggiornamento della chat: {e}")
+    # Recupera i messaggi dal database
+    messaggi = r.lrange(chat_key, 0, -1)
     
-    threading.Thread(target=aggiorna_chat, daemon=True).start()
+    # Crea un contenitore per la chat
+    chat_container = st.container()
     
-    while True:
-        messaggio = input()
-        if messaggio.strip().lower() == 'exit':
-            break
+    # Crea un form per l'input del messaggio
+    with st.form(key=f"message_form_{mittente}_{destinatario}"):
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            messaggio = st.text_input("Scrivi un messaggio:", key=f"message_input_{mittente}_{destinatario}")
+        with col2:
+            invia = st.form_submit_button("Invia")
+    
+    if invia and messaggio:
         timestamp = datetime.now().strftime('%H:%M')
         messaggio_formattato = f"{mittente}: {messaggio} {timestamp}"
-        if destinatario_data.get("dnd") == "True":
-            print("Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
-        else:
-            r.rpush(chat_key, messaggio_formattato)
-
-def chat_messaggi_temporanea(mittente, destinatario):
-    lista = [mittente, destinatario]
-    lista.sort()
-    chat_key = f"{lista[0]}_{lista[1]}_temp"
-    destinatario_data = r.hgetall(destinatario)
-
-    def aggiorna_chat():
-        clear_screen()
-        last_shown_index = 0
-        try:
-            while True:
-                messaggi = r.lrange(chat_key, 0, -1)
-                new_messages = messaggi[last_shown_index:]
-                if new_messages:
-                    for messaggio in new_messages:
-                        timestamp = messaggio[-8:]
-                        if messaggio.startswith(f"{mittente}: "):
-                            msg = "\u00b7 " + messaggio[len(mittente) + 2:-8]
-                            print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
-                        else:
-                            if messaggio.startswith("\u00b7 "):
-                                print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
-                            else:
-                                print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio[:-8]}\n{timestamp}")
-                    last_shown_index += len(new_messages)
-                time.sleep(1)
-        except Exception as e:
-            print(f"Errore durante l'aggiornamento della chat: {e}")
-
-    def monitor_chat_timeout():
-        timeout_seconds = 0
-        try:
-            while True:
-                start_time = time.time()
-                while True:
-                    time.sleep(1)
-                    elapsed_time = time.time() - start_time
-                    if elapsed_time >= 60:
-                        timeout_seconds += elapsed_time
-                        break
-                    if r.llen(chat_key) > 0:
-                        timeout_seconds = 0
-                
-                if timeout_seconds >= 60:
-                    r.delete(chat_key)
-                    clear_screen()
-                    print(f"\nLa chat tra {mittente} e {destinatario} è stata eliminata per inattività.")
-                    time.sleep(5)
-                    break
-        except Exception as e:
-            print(f"Errore durante il monitoraggio della chat: {e}")
-            return False
+        r.rpush(chat_key, messaggio_formattato)
+        messaggi.append(messaggio_formattato)
     
-    threading.Thread(target=aggiorna_chat, daemon=True).start()
-    monitor_thread = threading.Thread(target=monitor_chat_timeout)
-    monitor_thread.start()
-
-    while True:
-        if not monitor_thread.is_alive():
-            break
-
-        messaggio = input()
-        if messaggio.strip().lower() == 'exit':
-            break
-        timestamp = datetime.now().strftime('%H:%M:%S')
-        messaggio_formattato = f"{mittente}: {messaggio} {timestamp}"
-        if destinatario_data.get("dnd") == "True":
-            print("Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
-        else:
-            r.rpush(chat_key, messaggio_formattato)      
-              
-    print(f"\nLa chat tra {mittente} e {destinatario} è stata chiusa.")
-    time.sleep(2)
+    # Visualizza i messaggi
+    with chat_container:
+        st.markdown("""
+        <style>
+        .chat-container {
+            background-color: #E5DDD5;
+            padding: 20px;
+            border-radius: 10px;
+            height: 400px;
+            overflow-y: auto;
+        }
+        .chat-message {
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            display: inline-block;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .sender {
+            background-color: #DCF8C6;
+            float: right;
+            clear: both;
+        }
+        .receiver {
+            background-color: #FFFFFF;
+            float: left;
+            clear: both;
+        }
+        .timestamp {
+            font-size: 0.8em;
+            color: #888;
+            display: block;
+            margin-top: 5px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+        for messaggio in messaggi:
+            parti = messaggio.split(': ', 1)
+            if len(parti) == 2:
+                sender, content = parti
+                timestamp = content[-5:]
+                content = content[:-6]  # Rimuovi il timestamp dal contenuto
+                
+                if sender == mittente:
+                    st.markdown(f"""
+                    <div class="chat-message sender">
+                        {content}
+                        <span class="timestamp">{timestamp}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                    <div class="chat-message receiver">
+                        {content}
+                        <span class="timestamp">{timestamp}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Scroll automatico alla fine della chat
+        st.markdown('<div id="end-of-chat"></div>', unsafe_allow_html=True)
+        st.markdown("""
+        <script>
+            var chatContainer = document.querySelector('.chat-container');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        </script>
+        """, unsafe_allow_html=True)
 
 def toggle_dnd(username):
     user_data = r.hgetall(username)
     dnd_status = user_data.get("dnd", "False")
     new_dnd_status = "False" if dnd_status == "True" else "True"
     r.hset(username, "dnd", new_dnd_status)
-    clear_screen()
     if new_dnd_status == 'True':
-        print("Modalità 'non disturbare' attivata")
+        st.success("Modalità 'non disturbare' attivata")
     else:
-        print("Modalità 'non disturbare' disattivata")
-    time.sleep(2)
+        st.success("Modalità 'non disturbare' disattivata")
 
 def cerca_utenti(parziale):
-    clear_screen()
     chiavi = r.keys()
     risultati = []
     for chiave in chiavi:
@@ -194,109 +177,82 @@ def cerca_utenti(parziale):
                 risultati.append(chiave)
     
     if risultati:
-        print("Risultati della ricerca:")
+        st.write("Risultati della ricerca:")
         for utente in risultati:
-            print(utente)
+            st.write(utente)
     else:
-        print("Nessun utente trovato.")
-    input("\nPremi INVIO per continuare...")
+        st.write("Nessun utente trovato.")
 
 def avvia_sessione():
-    while True:
-        clear_screen()
-        print("Opzioni disponibili:")
-        print("1. Login")
-        print("2. Esci")
-        scelta = input("Inserisci il numero dell'opzione desiderata: ")
+    st.set_page_config(page_title="WhatsApp-like Chat", layout="wide")
+    
+    st.markdown("""
+    <style>
+    .big-font {
+        font-size:30px !important;
+        font-weight: bold;
+    }
+    .stButton>button {
+        width: 100%;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-        if scelta == '1':
-            username = input("Username: ")
-            user_data = login(username)
-            if user_data:
-                loading = 0
-                print(f"Benvenuto, {username}!")
-                width = 50
-                for i in range(101):
-                    progress = "=" * int(width * i / 100)
-                    spaces = " " * (width - len(progress))
-                    print(f"\rLoading: [{progress}{spaces}] {i}%", end="", flush=True)
-                    time.sleep(0.02)
-                print("\nLoading complete!")
-               
-                while True:
-                    clear_screen()              
-                    print("Opzioni disponibili:")
-                    print("1. Mostra rubrica")
-                    print("2. Aggiungi contatto")
-                    print("3. Rimuovi contatto")
-                    print("4. Avvia chat")
-                    print("5. Avvia chat a tempo")
-                    print("6. Attiva/Disattiva modalità 'non disturbare'")
-                    print("7. Cerca utenti")
-                    print("8. Logout")
-                    opzione = input("Inserisci il numero dell'opzione desiderata: ")
+    st.markdown('<p class="big-font">WhatsApp-like Chat</p>', unsafe_allow_html=True)
 
-                    if opzione == '1':
-                        clear_screen()
-                        contatti = rubrica(username)
-                        print(f"Rubrica di {username}:")
-                        for contatto in contatti:
-                            print(contatto)
-                        input("\nPremi INVIO per continuare...")
+    if "logged_in" not in st.session_state:
+        st.session_state["logged_in"] = False
 
-                    elif opzione == '2':
-                        nuovo_contatto = input("Inserisci un nuovo contatto: ")
-                        if r.exists(nuovo_contatto):
-                            if nuovo_contatto not in rubrica(username):
-                                aggiungi_contatto(username, nuovo_contatto)
-                                print(f"Contatto {nuovo_contatto} aggiunto alla rubrica.")
-                            else:
-                                print(f"Errore!\nIl contatto {nuovo_contatto} è già presente nella rubrica.")
-                                time.sleep(3)
-                        else:
-                            print(f"Errore!\nIl contatto {nuovo_contatto} non è presente nel sistema.")
-                            time.sleep(3)
+    if not st.session_state["logged_in"]:
+        col1, col2 = st.columns(2)
+        with col1:
+            username = st.text_input("Username:")
+        with col2:
+            if username:
+                login(username)
+    else:
+        st.sidebar.success(f"Benvenuto, {st.session_state['username']}!")
+        opzione = st.sidebar.selectbox("Opzioni", [
+            "Mostra rubrica", "Aggiungi contatto", "Rimuovi contatto",
+            "Avvia chat", "Attiva/Disattiva modalità 'non disturbare'", "Cerca utenti", "Logout"
+        ])
+        
+        if opzione == "Mostra rubrica":
+            mostra_rubrica(st.session_state["username"])
 
-                    elif opzione == '3':
-                        contatto_da_rimuovere = input("Inserisci il contatto da rimuovere: ")
-                        rimuovi_contatto(username, contatto_da_rimuovere)
-                        print(f"Contatto {contatto_da_rimuovere} rimosso dalla rubrica.")
+        elif opzione == "Aggiungi contatto":
+            aggiungi_contatto(st.session_state["username"])
 
-                    elif opzione == '4':
-                        destinatario = input("Inserisci il destinatario della chat: ")
-                        if destinatario in rubrica(username):
-                            chat_messaggi(username, destinatario)
-                        else:
-                            print(f"Errore!\nIl destinatario {destinatario} non è presente nella rubrica.")
-                            time.sleep(3)
+        elif opzione == "Rimuovi contatto":
+            rimuovi_contatto(st.session_state["username"])
 
-                    elif opzione == '5':
-                        destinatario = input("Inserisci il destinatario della chat: ")
-                        if destinatario in rubrica(username):
-                            chat_messaggi_temporanea(username, destinatario)
-                        else:
-                            print(f"Errore!\nIl destinatario {destinatario} non è presente nella rubrica.")
-                            time.sleep(3)
+        elif opzione == "Avvia chat":
+            destinatario = st.text_input("Inserisci il destinatario della chat:")
+            if destinatario and st.button("Avvia", key=f"avvia_chat_{destinatario}"):
+                if destinatario in r.lrange(f"{st.session_state['username']}_rubrica", 0, -1):
+                    st.session_state["current_chat"] = destinatario
+                else:
+                    st.error(f"Il destinatario {destinatario} non è presente nella rubrica.")
 
-                    elif opzione == '6':
-                        toggle_dnd(username)
+        elif opzione == "Attiva/Disattiva modalità 'non disturbare'":
+            toggle_dnd(st.session_state["username"])
 
-                    elif opzione == '7':
-                        parziale = input("Inserisci il nome utente (anche parziale): ")
-                        cerca_utenti(parziale)
+        elif opzione == "Cerca utenti":
+            parziale = st.text_input("Inserisci il nome utente (anche parziale):")
+            if st.button("Cerca", key="cerca_utenti"):
+                cerca_utenti(parziale)
 
-                    elif opzione == '8':
-                        print(f"Logout effettuato per l'utente {username}.")
-                        break
+        elif opzione == "Logout":
+            st.session_state["logged_in"] = False
+            st.session_state["username"] = ""
+            st.session_state["user_data"] = {}
+            st.session_state["current_chat"] = None
+            st.sidebar.success("Logout effettuato.")
+            st.experimental_rerun()
 
-                    else:
-                        print("Opzione non valida. Riprova.")
-
-        elif scelta == '2':
-            print("Grazie per aver usato l'applicazione.")
-            break
-        else:
-            print("Opzione non valida. Riprova.")
+        if st.session_state.get("current_chat"):
+            st.subheader(f"Chat con {st.session_state['current_chat']}")
+            chat_messaggi(st.session_state["username"], st.session_state["current_chat"])
 
 if __name__ == "__main__":
     avvia_sessione()
