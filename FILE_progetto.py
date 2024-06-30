@@ -5,30 +5,28 @@ import os
 from datetime import datetime
 from colorama import Fore, Style, init
 
-init(autoreset=True)  # Inizializza colorama
+init(autoreset=True)
 
 # Connessione a Redis
 try:
-    r = redis.Redis(host='redis-17160.c328.europe-west3-1.gce.redns.redis-cloud.com',
-                    port=17160, db=0, charset="utf-8", decode_responses=True,
-                    password="n7ZV42GWVg6uyskJc08vBw97Um7lJetQ")
-    r.ping()  # Controlla la connessione
+    r = redis.Redis(host='redis-11602.c304.europe-west1-2.gce.redns.redis-cloud.com',
+                    port=11602, db=0, charset="utf-8", decode_responses=True,
+                    password="aoabFoYLlhgn4EzDNPwtre5RoFGgCNiU")
+    r.ping()
 except redis.ConnectionError as e:
     print(f"Errore di connessione a Redis: {e}")
     exit(1)
 
-# Pulizia schermo
 def clear_screen():
-    if os.name == 'nt':  # Se il sistema operativo è Windows
+    if os.name == 'nt':
         os.system('cls')
-    else:  # Altri sistemi operativi (Unix, Linux, Mac)
+    else:
         os.system('clear')
 
-# Funzione per gestire il login
 def login(username):
     while True:
-        if r.exists(username):  # Username esistente
-            user_data = r.hgetall(username)  # Get di tutti gli username
+        if r.exists(username):
+            user_data = r.hgetall(username)
             clear_screen()
             password = input(f"Username: {username}\nInserisci la password: ")
             if user_data.get("password") == password:
@@ -36,13 +34,12 @@ def login(username):
             else:
                 clear_screen()
                 print("Password errata.")
-        else:  # Username non esistente
+        else:
             password = input("Crea una nuova password: ")
             user_data = {"username": username, "password": password, "dnd": "False"}
             r.hset(username, mapping=user_data)
             return user_data
 
-# Funzione per gestire la rubrica
 def rubrica(username):
     rubrica_key = f"{username}_rubrica"
     if not r.exists(rubrica_key):
@@ -50,24 +47,20 @@ def rubrica(username):
     contatti = r.lrange(rubrica_key, 0, -1)
     return contatti
 
-# Funzione per aggiungere un contatto alla rubrica
 def aggiungi_contatto(username, nuovo_contatto):
     clear_screen()
     rubrica_key = f"{username}_rubrica"
     r.rpush(rubrica_key, nuovo_contatto)
 
-# Funzione per rimuovere un contatto dalla rubrica
 def rimuovi_contatto(username, contatto_da_rimuovere):
     clear_screen()
     rubrica_key = f"{username}_rubrica"
     r.lrem(rubrica_key, 0, contatto_da_rimuovere)
 
-# Funzione per inviare e leggere messaggi
 def chat_messaggi(mittente, destinatario):
     lista = [mittente, destinatario]
     lista.sort()
     chat_key = f"{lista[0]}_{lista[1]}"
-    
     destinatario_data = r.hgetall(destinatario)
     
     def aggiorna_chat():
@@ -78,44 +71,41 @@ def chat_messaggi(mittente, destinatario):
                 new_messages = messaggi[last_shown_index:]
                 if new_messages:
                     for messaggio in new_messages:
+                        timestamp = messaggio[-5:]
                         if messaggio.startswith(f"{mittente}: "):
-                            msg, timestamp = messaggio.rsplit(' ', 1)
-                            msg = "\u00b7 "+msg[len(mittente) + 2:]
+                            msg = "\u00b7 " + messaggio[len(mittente) + 2:-5]
                             print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
                         else:
-                            if messaggio.startswith("\u00b7 "):  # messaggio mittente vecchio
+                            if messaggio.startswith("\u00b7 "):
                                 print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
-                            else:  # messaggio destinatario
-                                print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio}")
+                            else:
+                                print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio[:-5]}\n{timestamp}")
                     last_shown_index += len(new_messages)
-                time.sleep(1)  # Riduco il delay per aggiornamenti più frequenti
+                time.sleep(1)
         except Exception as e:
             print(f"Errore durante l'aggiornamento della chat: {e}")
     
     threading.Thread(target=aggiorna_chat, daemon=True).start()
     
     while True:
-        messaggio = input()  # Solo input del messaggio, senza prompt
+        messaggio = input()
         if messaggio.strip().lower() == 'exit':
             break
         timestamp = datetime.now().strftime('%H:%M')
-        messaggio_formattato = f"{mittente}: {messaggio} {timestamp}"  # Formato messaggio con il timestamp
+        messaggio_formattato = f"{mittente}: {messaggio} {timestamp}"
         if destinatario_data.get("dnd") == "True":
-            print(f"Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
+            print("Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
             r.rpush(chat_key, messaggio_formattato)
-            
 
-# Funzione per inviare e leggere messaggi in una chat temporanea
 def chat_messaggi_temporanea(mittente, destinatario):
     lista = [mittente, destinatario]
     lista.sort()
     chat_key = f"{lista[0]}_{lista[1]}_temp"
-    
     destinatario_data = r.hgetall(destinatario)
 
     def aggiorna_chat():
-        clear_screen()  # Assicura che la chat sia vuota all'avvio
+        clear_screen()
         last_shown_index = 0
         try:
             while True:
@@ -123,17 +113,17 @@ def chat_messaggi_temporanea(mittente, destinatario):
                 new_messages = messaggi[last_shown_index:]
                 if new_messages:
                     for messaggio in new_messages:
+                        timestamp = messaggio[-8:]
                         if messaggio.startswith(f"{mittente}: "):
-                            msg, timestamp = messaggio.rsplit(' ', 1)
-                            msg = "\u00b7 " + msg[len(mittente) + 2:]
+                            msg = "\u00b7 " + messaggio[len(mittente) + 2:-8]
                             print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
                         else:
-                            if messaggio.startswith("\u00b7 "):  # messaggio mittente vecchio
+                            if messaggio.startswith("\u00b7 "):
                                 print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
-                            else:  # messaggio destinatario
-                                print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio}")
+                            else:
+                                print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio[:-8]}\n{timestamp}")
                     last_shown_index += len(new_messages)
-                time.sleep(1)  # Riduco il delay per aggiornamenti più frequenti
+                time.sleep(1)
         except Exception as e:
             print(f"Errore durante l'aggiornamento della chat: {e}")
 
@@ -156,7 +146,7 @@ def chat_messaggi_temporanea(mittente, destinatario):
                     clear_screen()
                     print(f"\nLa chat tra {mittente} e {destinatario} è stata eliminata per inattività.")
                     time.sleep(5)
-                    break  #La chat è stata eliminata per inattività
+                    break
         except Exception as e:
             print(f"Errore durante il monitoraggio della chat: {e}")
             return False
@@ -169,21 +159,19 @@ def chat_messaggi_temporanea(mittente, destinatario):
         if not monitor_thread.is_alive():
             break
 
-        messaggio = input()  # Solo input del messaggio, senza prompt
+        messaggio = input()
         if messaggio.strip().lower() == 'exit':
             break
         timestamp = datetime.now().strftime('%H:%M:%S')
-        messaggio_formattato = f"{mittente}: {messaggio} {timestamp}"  # Formato messaggio con il timestamp
+        messaggio_formattato = f"{mittente}: {messaggio} {timestamp}"
         if destinatario_data.get("dnd") == "True":
-            print(f"Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
+            print("Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
             r.rpush(chat_key, messaggio_formattato)      
               
     print(f"\nLa chat tra {mittente} e {destinatario} è stata chiusa.")
+    time.sleep(2)
 
-    time.sleep(2)  # Breve pausa prima di tornare al menu principale
-
-# Funzione per attivare/disattivare la modalità non disturbare
 def toggle_dnd(username):
     user_data = r.hgetall(username)
     dnd_status = user_data.get("dnd", "False")
@@ -196,7 +184,23 @@ def toggle_dnd(username):
         print("Modalità 'non disturbare' disattivata")
     time.sleep(2)
 
-# Funzione per avviare la sessione
+def cerca_utenti(parziale):
+    clear_screen()
+    chiavi = r.keys()
+    risultati = []
+    for chiave in chiavi:
+        if parziale in chiave and ':' not in chiave:
+            if r.type(chiave) == 'hash':
+                risultati.append(chiave)
+    
+    if risultati:
+        print("Risultati della ricerca:")
+        for utente in risultati:
+            print(utente)
+    else:
+        print("Nessun utente trovato.")
+    input("\nPremi INVIO per continuare...")
+
 def avvia_sessione():
     while True:
         clear_screen()
@@ -226,9 +230,10 @@ def avvia_sessione():
                     print("2. Aggiungi contatto")
                     print("3. Rimuovi contatto")
                     print("4. Avvia chat")
-                    print("5. Avvia chat a tempo")  # Nuova opzione per la chat a tempo
+                    print("5. Avvia chat a tempo")
                     print("6. Attiva/Disattiva modalità 'non disturbare'")
-                    print("7. Logout")
+                    print("7. Cerca utenti")
+                    print("8. Logout")
                     opzione = input("Inserisci il numero dell'opzione desiderata: ")
 
                     if opzione == '1':
@@ -265,7 +270,7 @@ def avvia_sessione():
                             print(f"Errore!\nIl destinatario {destinatario} non è presente nella rubrica.")
                             time.sleep(3)
 
-                    elif opzione == '5':  # Gestione della chat a tempo
+                    elif opzione == '5':
                         destinatario = input("Inserisci il destinatario della chat: ")
                         if destinatario in rubrica(username):
                             chat_messaggi_temporanea(username, destinatario)
@@ -277,6 +282,10 @@ def avvia_sessione():
                         toggle_dnd(username)
 
                     elif opzione == '7':
+                        parziale = input("Inserisci il nome utente (anche parziale): ")
+                        cerca_utenti(parziale)
+
+                    elif opzione == '8':
                         print(f"Logout effettuato per l'utente {username}.")
                         break
 
@@ -289,9 +298,5 @@ def avvia_sessione():
         else:
             print("Opzione non valida. Riprova.")
 
-# Avvio del programma
 if __name__ == "__main__":
     avvia_sessione()
-    
-    
-    
