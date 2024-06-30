@@ -2,7 +2,7 @@ import redis
 import threading
 import time
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from colorama import Fore, Style, init
 
 init(autoreset=True)  # Inizializza colorama
@@ -72,22 +72,25 @@ def chat_messaggi(mittente, destinatario):
     
     def aggiorna_chat():
         last_shown_index = 0
-        while True:
-            messaggi = r.lrange(chat_key, 0, -1)
-            new_messages = messaggi[last_shown_index:]
-            if new_messages:
-                for messaggio in new_messages:
-                    if messaggio.startswith(f"{mittente}: "):
-                        msg, timestamp = messaggio.rsplit(' ', 1)
-                        msg = "\u00b7 "+msg[len(mittente) + 2:]
-                        print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
-                    else:
-                        if messaggio.startswith("\u00b7 "):  # messaggio mittente vecchio
-                            print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
-                        else:  # messaggio destinatario
-                            print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio}")
-                last_shown_index += len(new_messages)
-            time.sleep(1)  # Riduco il delay per aggiornamenti più frequenti
+        try:
+            while True:
+                messaggi = r.lrange(chat_key, 0, -1)
+                new_messages = messaggi[last_shown_index:]
+                if new_messages:
+                    for messaggio in new_messages:
+                        if messaggio.startswith(f"{mittente}: "):
+                            msg, timestamp = messaggio.rsplit(' ', 1)
+                            msg = "\u00b7 "+msg[len(mittente) + 2:]
+                            print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
+                        else:
+                            if messaggio.startswith("\u00b7 "):  # messaggio mittente vecchio
+                                print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
+                            else:  # messaggio destinatario
+                                print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio}")
+                    last_shown_index += len(new_messages)
+                time.sleep(1)  # Riduco il delay per aggiornamenti più frequenti
+        except Exception as e:
+            print(f"Errore durante l'aggiornamento della chat: {e}")
     
     threading.Thread(target=aggiorna_chat, daemon=True).start()
     
@@ -101,6 +104,7 @@ def chat_messaggi(mittente, destinatario):
             print(f"Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
             r.rpush(chat_key, messaggio_formattato)
+            
 
 # Funzione per inviare e leggere messaggi in una chat temporanea
 def chat_messaggi_temporanea(mittente, destinatario):
@@ -113,41 +117,49 @@ def chat_messaggi_temporanea(mittente, destinatario):
     def aggiorna_chat():
         clear_screen()  # Assicura che la chat sia vuota all'avvio
         last_shown_index = 0
-        while True:
-            messaggi = r.lrange(chat_key, 0, -1)
-            new_messages = messaggi[last_shown_index:]
-            if new_messages:
-                for messaggio in new_messages:
-                    if messaggio.startswith(f"{mittente}: "):
-                        msg, timestamp = messaggio.rsplit(' ', 1)
-                        msg = "\u00b7 " + msg[len(mittente) + 2:]
-                        print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
-                    else:
-                        if messaggio.startswith("\u00b7 "):  # messaggio mittente vecchio
-                            print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
-                        else:  # messaggio destinatario
-                            print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio}")
-                last_shown_index += len(new_messages)
-            time.sleep(1)  # Riduco il delay per aggiornamenti più frequenti
+        try:
+            while True:
+                messaggi = r.lrange(chat_key, 0, -1)
+                new_messages = messaggi[last_shown_index:]
+                if new_messages:
+                    for messaggio in new_messages:
+                        if messaggio.startswith(f"{mittente}: "):
+                            msg, timestamp = messaggio.rsplit(' ', 1)
+                            msg = "\u00b7 " + msg[len(mittente) + 2:]
+                            print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
+                        else:
+                            if messaggio.startswith("\u00b7 "):  # messaggio mittente vecchio
+                                print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
+                            else:  # messaggio destinatario
+                                print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio}")
+                    last_shown_index += len(new_messages)
+                time.sleep(1)  # Riduco il delay per aggiornamenti più frequenti
+        except Exception as e:
+            print(f"Errore durante l'aggiornamento della chat: {e}")
 
     def monitor_chat_timeout():
         timeout_seconds = 0
-        while True:
-            start_time = time.time()
+        try:
             while True:
-                time.sleep(1)
-                elapsed_time = time.time() - start_time
-                if elapsed_time >= 60:
-                    timeout_seconds += elapsed_time
-                    break
-                if r.llen(chat_key) > 0:
-                    timeout_seconds = 0
-            
-            if timeout_seconds >= 60:
-                r.delete(chat_key)
-                clear_screen()
-                print(f"\nLa chat tra {mittente} e {destinatario} è stata eliminata per inattività.")
-                return True  # Indica che la chat è stata eliminata per inattività
+                start_time = time.time()
+                while True:
+                    time.sleep(1)
+                    elapsed_time = time.time() - start_time
+                    if elapsed_time >= 60:
+                        timeout_seconds += elapsed_time
+                        break
+                    if r.llen(chat_key) > 0:
+                        timeout_seconds = 0
+                
+                if timeout_seconds >= 60:
+                    r.delete(chat_key)
+                    clear_screen()
+                    print(f"\nLa chat tra {mittente} e {destinatario} è stata eliminata per inattività.")
+                    time.sleep(5)
+                    break  #La chat è stata eliminata per inattività
+        except Exception as e:
+            print(f"Errore durante il monitoraggio della chat: {e}")
+            return False
     
     threading.Thread(target=aggiorna_chat, daemon=True).start()
     monitor_thread = threading.Thread(target=monitor_chat_timeout)
@@ -165,8 +177,8 @@ def chat_messaggi_temporanea(mittente, destinatario):
         if destinatario_data.get("dnd") == "True":
             print(f"Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
-            r.rpush(chat_key, messaggio_formattato)
-            
+            r.rpush(chat_key, messaggio_formattato)      
+              
     print(f"\nLa chat tra {mittente} e {destinatario} è stata chiusa.")
 
     time.sleep(2)  # Breve pausa prima di tornare al menu principale
