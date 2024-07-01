@@ -103,12 +103,13 @@ def chat_messaggi_temporanea(mittente, destinatario):
     lista.sort()
     chat_key = f"{lista[0]}_{lista[1]}_temp"
     destinatario_data = r.hgetall(destinatario)
+    chat_attiva = True
 
     def aggiorna_chat():
         clear_screen()
         last_shown_index = 0
         try:
-            while True:
+            while chat_attiva:
                 messaggi = r.lrange(chat_key, 0, -1)
                 new_messages = messaggi[last_shown_index:]
                 if new_messages:
@@ -130,9 +131,9 @@ def chat_messaggi_temporanea(mittente, destinatario):
     def monitor_chat_timeout():
         timeout_seconds = 0
         try:
-            while True:
+            while chat_attiva:
                 start_time = time.time()
-                while True:
+                while chat_attiva:
                     time.sleep(1)
                     elapsed_time = time.time() - start_time
                     if elapsed_time >= 60:
@@ -146,7 +147,8 @@ def chat_messaggi_temporanea(mittente, destinatario):
                     clear_screen()
                     print(f"\nLa chat tra {mittente} e {destinatario} è stata eliminata per inattività.")
                     time.sleep(5)
-                    break
+                    print("Premi INVIO per continuare...")
+                    return True
         except Exception as e:
             print(f"Errore durante il monitoraggio della chat: {e}")
             return False
@@ -168,7 +170,9 @@ def chat_messaggi_temporanea(mittente, destinatario):
             print("Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
             r.rpush(chat_key, messaggio_formattato)      
-              
+
+    chat_attiva = False
+    r.delete(chat_key)
     print(f"\nLa chat tra {mittente} e {destinatario} è stata chiusa.")
     time.sleep(2)
 
