@@ -1,67 +1,64 @@
-# Importa i moduli necessari
-import redis # Modulo per interagire con il database Redis
-import threading # Modulo per gestire i thread
-import time # Modulo per gestire il tempo
-import os # Modulo per interagire con il sistema operativo
-from datetime import datetime # Modulo per gestire le date e le ore
-from colorama import Fore, Style, init # Modulo per aggiungere colori alla console
+#region Importa moduli
+import redis 
+import threading 
+import time
+import os 
+from datetime import datetime
+from colorama import Fore, Style, init 
 
 # Inizializza il modulo colorama per utilizzare i colori nella console
 init(autoreset=True)
 
-# Connessione a Redis
+#region Connessione a Redis
 try:
-    # Crea un'istanza del client Redis con le credenziali fornite
     r = redis.Redis(host='redis-11602.c304.europe-west1-2.gce.redns.redis-cloud.com',
                     port=11602, db=0, charset="utf-8", decode_responses=True,
-                    password="aoabFoYLlhgn4EzDNPwtre5RoFGgCNiU") # Crea un'istanza del client Redis con le credenziali fornite
-    # Verifica la connessione a Redis
+                    password="aoabFoYLlhgn4EzDNPwtre5RoFGgCNiU") #Istanza del client Redis con le credenziali fornite
     r.ping() # Verifica la connessione a Redis
 except redis.ConnectionError as e:
-    # Gestisce l'errore di connessione a Redis
-    print(f"Errore di connessione a Redis: {e}") # Stampa un messaggio di errore se la connessione a Redis fallisce
-    exit(1) # Esce dal programma
+    print(f"Errore di connessione a Redis: {e}") #Errore di connessione a Redis
+    exit(1)
 
-# Funzione per pulire la console
+#region Pulire la console
 def clear_screen():
-    if os.name == 'nt': # Se il sistema operativo è Windows
-        os.system('cls') # Esegue il comando 'cls' per pulire la console
+    if os.name == 'nt': # Windows
+        os.system('cls') 
     else:
-        os.system('clear') # Altrimenti, esegue il comando 'clear' per pulire la console
+        os.system('clear') #no Windows
 
-# Funzione per effettuare il login o la registrazione di un utente
+#region Login
 def login(username):
     while True:
         if r.exists(f"user:{username}"): # Controlla se l'utente esiste nel database
             user_data = r.hgetall(f"user:{username}") # Ottiene i dati dell'utente dal database
             clear_screen()
-            password = input(f"Username: {username}\nInserisci la password: ") # Chiede all'utente di inserire la password
+            password = input(f"Username: {username}\nInserisci la password: ")
             if user_data.get("password") == password: # Controlla se la password inserita è corretta
-                return user_data # Restituisce i dati dell'utente se la password è corretta
+                return user_data 
             else:
                 clear_screen()
-                print("Password errata.") # Stampa un messaggio di errore se la password è sbagliata
-        else:
-            password = input("Crea una nuova password: ") # Chiede all'utente di creare una nuova password
+                print("Password errata.") 
+        else: # Nuova password
+            password = input("Crea una nuova password: ") 
             user_data = {"username": username, "password": password, "dnd": "False"} # Crea un dizionario con i dati dell'utente
             r.hset(f"user:{username}", mapping=user_data) # Salva i dati dell'utente nel database
             return user_data # Restituisce i dati dell'utente
 
-# Funzione per ottenere la rubrica di un utente
+#region Ottenere la rubrica di un utente
 def rubrica(username):
     rubrica_key = f"rubrica:{username}" # Crea la chiave per la rubrica dell'utente
-    if not r.exists(rubrica_key): # Controlla se la rubrica esiste nel database
-        r.rpush(rubrica_key, username) # Se non esiste, crea una nuova rubrica con l'username dell'utente
+    if not r.exists(rubrica_key): 
+        r.rpush(rubrica_key, username) #Crea una nuova rubrica con l'username dell'utente
     contatti = r.lrange(rubrica_key, 0, -1) # Ottiene la lista dei contatti dalla rubrica
     return contatti # Restituisce la lista dei contatti
 
-# Funzione per aggiungere un nuovo contatto alla rubrica di un utente
+#region Aggiungere un nuovo contatto alla rubrica di un utente
 def aggiungi_contatto(username, nuovo_contatto):
     clear_screen()
     rubrica_key = f"rubrica:{username}" # Crea la chiave per la rubrica dell'utente
     r.rpush(rubrica_key, nuovo_contatto) # Aggiunge il nuovo contatto alla rubrica
 
-# Funzione per rimuovere un contatto dalla rubrica di un utente
+#region Rimuovere un contatto dalla rubrica di un utente
 def rimuovi_contatto(username, contatto_da_rimuovere):
     clear_screen()
     rubrica_key = f"rubrica:{username}" # Crea la chiave per la rubrica dell'utente
@@ -71,13 +68,13 @@ def chat_messaggi(mittente, destinatario):
     lista = sorted([mittente, destinatario]) # Ordina gli username in ordine alfabetico
     chat_key1 = f"chat:{lista[0]}:{lista[1]}" # Crea la chiave per la chat tra i due utenti
     chat_key2 = f"chat:{lista[1]}:{lista[0]}" # Crea la chiave per la chat tra i due utenti (invertita)
-    destinatario_data = r.hgetall(f"user:{destinatario}") # Ottiene i dati dell'utente destinatario
+    destinatario_data = r.hgetall(f"user:{destinatario}") 
 
     def crea_cartelle_chat():
         if not r.exists(chat_key1): # Controlla se la chat esiste nel database
-            r.rpush(chat_key1, "") # Se non esiste, crea una nuova chat vuota
+            r.rpush(chat_key1, "") 
         if not r.exists(chat_key2): # Controlla se la chat esiste nel database
-            r.rpush(chat_key2, "") # Se non esiste, crea una nuova chat vuota
+            r.rpush(chat_key2, "") 
 
     crea_cartelle_chat() # Crea le cartelle per la chat, se non esistono
 
