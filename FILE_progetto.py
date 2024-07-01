@@ -22,7 +22,6 @@ except redis.ConnectionError as e:
     print(f"Errore di connessione a Redis: {e}")
     exit(1)
 
-# Funzione per pulire la console
 def clear_screen():
     # Verifica il sistema operativo
     if os.name == 'nt':
@@ -32,7 +31,6 @@ def clear_screen():
         # Esegue il comando 'clear' per Unix/Linux
         os.system('clear')
 
-# Funzione per effettuare il login o la registrazione di un utente
 def login(username):
     while True:
         # Verifica se l'utente esiste nel database Redis
@@ -69,7 +67,6 @@ def rubrica(username):
     contatti = r.lrange(rubrica_key, 0, -1)
     return contatti
 
-# Funzione per aggiungere un nuovo contatto alla rubrica di un utente
 def aggiungi_contatto(username, nuovo_contatto):
     clear_screen()
     # Costruisce la chiave per la rubrica dell'utente
@@ -77,7 +74,6 @@ def aggiungi_contatto(username, nuovo_contatto):
     # Aggiunge il nuovo contatto alla rubrica
     r.rpush(rubrica_key, nuovo_contatto)
 
-# Funzione per rimuovere un contatto dalla rubrica di un utente
 def rimuovi_contatto(username, contatto_da_rimuovere):
     clear_screen()
     # Costruisce la chiave per la rubrica dell'utente
@@ -85,7 +81,6 @@ def rimuovi_contatto(username, contatto_da_rimuovere):
     # Rimuove il contatto dalla rubrica
     r.lrem(rubrica_key, 0, contatto_da_rimuovere)
 
-# Funzione per avviare una chat tra due utenti
 def chat_messaggi(mittente, destinatario):
     # Ordina gli username in ordine alfabetico per creare una chiave univoca per la chat
     lista = [mittente, destinatario]
@@ -241,7 +236,6 @@ def chat_messaggi_temporanea(mittente, destinatario):
     print(f"\nLa chat tra {mittente} e {destinatario} è stata chiusa.")
     time.sleep(2)
 
-# Funzione per attivare/disattivare la modalità 'non disturbare' per un utente
 def toggle_dnd(username):
     # Recupera i dati dell'utente
     user_data = r.hgetall(username)
@@ -258,7 +252,6 @@ def toggle_dnd(username):
         print("Modalità 'non disturbare' disattivata")
     time.sleep(2)
 
-# Funzione per cercare utenti nel database
 def cerca_utenti(parziale):
     clear_screen()
     # Ottiene tutte le chiavi nel database Redis
@@ -279,7 +272,6 @@ def cerca_utenti(parziale):
         print("Nessun utente trovato.")
     input("\nPremi INVIO per continuare...")
 
-# Funzione principale per avviare la sessione dell'applicazione
 def avvia_sessione():
     while True:
         clear_screen()
@@ -410,3 +402,4 @@ def avvia_sessione():
 if __name__ == "__main__":
     # Avvia la sessione dell'applicazione
     avvia_sessione()
+
