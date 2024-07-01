@@ -76,7 +76,7 @@ def chat_messaggi(mittente, destinatario):
         if not r.exists(chat_key2): # Controlla se la chat esiste nel database
             r.rpush(chat_key2, "") 
 
-    crea_cartelle_chat() # Crea le cartelle per la chat, se non esistono
+    crea_cartelle_chat() # Crea le cartelle per la chat
 
     def aggiorna_chat():
         last_shown_index = 0 # Indice dell'ultimo messaggio mostrato
@@ -88,17 +88,17 @@ def chat_messaggi(mittente, destinatario):
                     for messaggio in new_messages:
                         timestamp = messaggio[-5:] # Ottiene l'orario del messaggio
                         if messaggio.startswith(f"{mittente}: "): # Se il messaggio è stato inviato dal mittente
-                            msg = "\u00b7 " + messaggio[len(mittente) + 2:-5] # Formatta il messaggio
-                            print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}") # Stampa il messaggio con il colore giallo
+                            msg = "\u00b7 " + messaggio[len(mittente) + 2:-5]
+                            print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}") # Messaggio con il colore giallo
                         else:
                             if messaggio.startswith("\u00b7 "): # Se il messaggio è una risposta
-                                print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}") # Stampa il messaggio con il colore giallo
+                                print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}") # Messaggio colore giallo
                             else:
-                                print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio[:-5]}\n{timestamp}") # Stampa il messaggio con il colore verde
+                                print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio[:-5]}\n{timestamp}") # Messaggio con il colore verde
                     last_shown_index += len(new_messages) # Aggiorna l'indice dell'ultimo messaggio mostrato
-                time.sleep(1) # Aspetta un secondo prima di controllare nuovamente i nuovi messaggi
+                time.sleep(1) 
         except Exception as e:
-            print(f"Errore durante l'aggiornamento della chat: {e}") # Stampa un messaggio di errore se si verifica un'eccezione
+            print(f"Errore durante l'aggiornamento della chat: {e}")
 
     threading.Thread(target=aggiorna_chat, daemon=True).start() # Avvia un nuovo thread per aggiornare la chat
 
@@ -109,54 +109,40 @@ def chat_messaggi(mittente, destinatario):
         timestamp = datetime.now().strftime('%H:%M') # Ottiene l'orario attuale
         messaggio_formattato = f"{mittente}: {messaggio} {timestamp}" # Formatta il messaggio con l'username e l'orario
         if destinatario_data.get("dnd") == "True": # Controlla se il destinatario è in modalità 'non disturbare'
-            print("Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.") # Stampa un messaggio di errore
+            print("Errore!\nMessaggio non recapitato perché il destinatario è in modalità non disturbare.")
         else:
             r.rpush(chat_key1, messaggio_formattato) # Aggiunge il messaggio alla chat
             r.rpush(chat_key2, messaggio_formattato) # Aggiunge il messaggio alla chat (invertita)
 
-# Funzione per avviare una chat temporanea tra due utenti
+#region Avviare una chat temporanea tra due utenti
 def chat_messaggi_temporanea(mittente, destinatario):
-    # Ordina gli username in ordine alfabetico
-    lista = sorted([mittente, destinatario])
-    # Crea la chiave per la chat tra i due utenti
-    chat_key1 = f"chat_temp:{lista[0]}:{lista[1]}"
-    # Crea la chiave per la chat tra i due utenti (invertita)
-    chat_key2 = f"chat_temp:{lista[1]}:{lista[0]}"
-    # Ottiene i dati dell'utente destinatario
-    destinatario_data = r.hgetall(f"user:{destinatario}")
+    lista = sorted([mittente, destinatario]) # Ordina gli username in ordine alfabetico
+    chat_key1 = f"chat_temp:{lista[0]}:{lista[1]}" # Chiave per la chat tra i due utenti
+    chat_key2 = f"chat_temp:{lista[1]}:{lista[0]}" # Chiave per la chat tra i due utenti (invertita)
+    destinatario_data = r.hgetall(f"user:{destinatario}")   # Dati dell'utente destinatario
     # Imposta la chat come attiva
     chat_attiva = True
 
     # Funzione per creare le cartelle per la chat, se non esistono
     def crea_cartelle_chat():
-        # Controlla se la chat esiste nel database
-        if not r.exists(chat_key1):
-            # Se non esiste, crea una nuova chat vuota
-            r.rpush(chat_key1, "")
-        # Controlla se la chat esiste nel database
+        
+        if not r.exists(chat_key1): # Controlla se la chat esiste nel database
+            r.rpush(chat_key1, "") #crea una nuova chat vuota
         if not r.exists(chat_key2):
-            # Se non esiste, crea una nuova chat vuota
             r.rpush(chat_key2, "")
 
-    # Chiama la funzione per creare le cartelle per la chat
     crea_cartelle_chat()
 
     # Funzione per aggiornare la chat
     def aggiorna_chat():
-        # Pulisce lo schermo
         clear_screen()
-        # Imposta l'indice dell'ultimo messaggio mostrato a 0
         last_shown_index = 0
         try:
             # Ciclo che continua finché la chat è attiva
             while chat_attiva:
-                # Ottiene la lista dei messaggi dalla chat
-                messaggi = r.lrange(chat_key1, 0, -1)
-                # Ottiene i nuovi messaggi dalla lista
-                new_messages = messaggi[last_shown_index:]
-                # Se ci sono nuovi messaggi
+                messaggi = r.lrange(chat_key1, 0, -1) # Ottiene la lista dei messaggi dalla chat
+                new_messages = messaggi[last_shown_index:] # Ottiene i nuovi messaggi dalla lista
                 if new_messages:
-                    # Ciclo per ogni nuovo messaggio
                     for messaggio in new_messages:
                         # Ottiene l'orario del messaggio
                         timestamp = messaggio[-8:]
@@ -164,22 +150,18 @@ def chat_messaggi_temporanea(mittente, destinatario):
                         if messaggio.startswith(f"{mittente}: "):
                             # Formatta il messaggio
                             msg = "\u00b7 " + messaggio[len(mittente) + 2:-8]
-                            # Stampa il messaggio con il colore giallo
                             print(f"{Fore.LIGHTYELLOW_EX + msg.rjust(80)}\n{timestamp.rjust(80)}")
                         else:
                             # Se il messaggio è una risposta
                             if messaggio.startswith("\u00b7 "):
-                                # Stampa il messaggio con il colore giallo
                                 print(f"{Style.BRIGHT}{Fore.LIGHTYELLOW_EX + messaggio.rjust(80)}\n{timestamp.rjust(80)}")
                             else:
                                 # Stampa il messaggio con il colore verde
                                 print(f"{Style.BRIGHT}{Fore.GREEN}{messaggio[:-8]}\n{timestamp}")
                     # Aggiorna l'indice dell'ultimo messaggio mostrato
                     last_shown_index += len(new_messages)
-                # Aspetta un secondo prima di controllare nuovamente i nuovi messaggi
                 time.sleep(1)
         except Exception as e:
-            # Stampa un messaggio di errore se si verifica un'eccezione
             print(f"Errore durante l'aggiornamento della chat: {e}")
 
     # Funzione per monitorare il timeout della chat
