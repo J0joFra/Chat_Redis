@@ -1,3 +1,4 @@
+```markdown
 # Progetto di esame REDIS BD 2023
 Software di messaggistica stile “Whatsapp”
 CONSEGNA: 01/07/24
@@ -29,4 +30,4 @@ e. Lettura dei messaggi (inviati e ricevuti) presenti in una chat con un utente 
 ## Requisiti opzionali
 - Implementare la possibilità di ricevere delle notifiche push sulla chat, la schermata di cui al punto (e) deve quindi aggiornare in tempo “reale” non appena viene inviato un messaggio (3/30)
 - Implementare la possibilità di iniziare una chat “a tempo” con un utente, tale chat  dovrà distruggersi entro 1 minuto dall’ultimo messaggio inviato. (1/30)
-
+```
